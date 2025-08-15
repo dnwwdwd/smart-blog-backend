@@ -1,7 +1,9 @@
 package com.burger.smartblog.controller;
 
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.burger.smartblog.common.BaseResponse;
 import com.burger.smartblog.common.ResultUtils;
+import com.burger.smartblog.model.dto.tag.TagRequest;
 import com.burger.smartblog.model.entity.Tag;
 import com.burger.smartblog.model.vo.TagVo;
 import com.burger.smartblog.service.TagService;
@@ -25,9 +27,9 @@ public class TagController {
      *
      * @return
      */
-    @GetMapping("/list")
-    public BaseResponse<List<Tag>> getTags() {
-        List<Tag> tags = tagService.list();
+    @GetMapping("/page")
+    public BaseResponse<Page<TagVo>> getTagPage(TagRequest request) {
+        Page<TagVo> tags = tagService.getTagPage(request);
         return ResultUtils.success(tags);
     }
 
@@ -37,7 +39,7 @@ public class TagController {
      * @param tagId
      * @return
      */
-    @GetMapping("/get/{tagId}")
+    @GetMapping("/get/vo/{tagId}")
     public BaseResponse<TagVo> getTag(@PathVariable Long tagId) {
         TagVo tagVo = tagService.getTagVoById(tagId);
         return ResultUtils.success(tagVo);

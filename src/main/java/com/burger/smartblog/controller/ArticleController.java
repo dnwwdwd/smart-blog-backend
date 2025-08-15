@@ -10,10 +10,7 @@ import com.burger.smartblog.service.ArticleService;
 import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
 import org.springframework.validation.annotation.Validated;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/article")
@@ -42,6 +39,22 @@ public class ArticleController {
     public BaseResponse<Page<ArticleVo>> getArticlePage(@RequestBody ArticleRequest request) {
         Page<ArticleVo> page = articleService.getArticlePage(request);
         return ResultUtils.success(page);
+    }
+
+    @GetMapping("/get/vo/{articleId}")
+    public BaseResponse<ArticleVo> getArticleVoById(@PathVariable Long articleId) {
+        ArticleVo articleVo = articleService.getArticleVoById(articleId);
+        return ResultUtils.success(articleVo);
+    }
+
+    @PostMapping("/column/get/vo/{columnId}")
+    public BaseResponse<Page<ArticleVo>> getArticlePageByColumnId(@PathVariable Long columnId, @RequestBody ArticleRequest request) {
+        return ResultUtils.success(articleService.getArticlePageByColumnId(columnId, request));
+    }
+
+    @PostMapping("/tag/get/vo/{tagId}")
+    public BaseResponse<Page<ArticleVo>> getArticlePageByTagId(@PathVariable Long tagId, @RequestBody ArticleRequest request) {
+        return ResultUtils.success(articleService.getArticlePageByTagId(tagId, request));
     }
 
 }

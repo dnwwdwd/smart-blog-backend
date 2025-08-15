@@ -1,7 +1,12 @@
 package com.burger.smartblog.service;
 
+import com.burger.smartblog.model.dto.comment.CommentSubmitDto;
 import com.burger.smartblog.model.entity.Comment;
 import com.baomidou.mybatisplus.extension.service.IService;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
+
+import java.util.List;
 
 /**
 * @author hejiajun
@@ -10,4 +15,7 @@ import com.baomidou.mybatisplus.extension.service.IService;
 */
 public interface CommentService extends IService<Comment> {
 
+    void submitComment(@Valid CommentSubmitDto dto, HttpServletRequest request);
+
+    List<Comment> getCommentsByArticleId(Long articleId);
 }

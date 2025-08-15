@@ -1,18 +1,15 @@
 package com.burger.smartblog.service.impl;
 
-import cn.hutool.core.collection.CollectionUtil;
-import cn.hutool.extra.cglib.CglibUtil;
 import cn.hutool.json.JSONUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.burger.smartblog.common.ErrorCode;
+import com.burger.smartblog.exception.BusinessException;
 import com.burger.smartblog.mapper.ArticleMapper;
 import com.burger.smartblog.model.dto.article.ArticlePublishRequest;
 import com.burger.smartblog.model.dto.article.ArticleRequest;
-import com.burger.smartblog.model.entity.Article;
-import com.burger.smartblog.model.entity.ArticleColumn;
-import com.burger.smartblog.model.entity.ArticleTag;
-import com.burger.smartblog.model.entity.Tag;
+import com.burger.smartblog.model.entity.*;
 import com.burger.smartblog.model.vo.ArticleVo;
 import com.burger.smartblog.service.*;
 import jakarta.annotation.Resource;
@@ -39,6 +36,10 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article>
     @Resource
     @Lazy
     private ColumnService columnService;
+
+    @Resource
+    @Lazy
+    private CommentService commentService;
 
     @Resource
     private ArticleColumnService articleColumnService;
@@ -112,7 +113,8 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article>
             }
             List<String> tagNames = tagService.getTagsByArticleId(article.getId()).stream().map(Tag::getName).toList();
             articleVo.setTags(tagNames);
-            // todo 查询 comments
+            List<Comment> comments = commentService.getCommentsByArticleId(article.getId());
+            articleVo.setComments(comments);
             return articleVo;
         }).collect(Collectors.toList());
         Page<ArticleVo> articleVoPage = new Page<>(current, pageSize, articlePage.getTotal());
@@ -128,6 +130,9 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article>
         List<Long> articleIds = articleTagService.lambdaQuery()
                 .eq(ArticleTag::getTagId, tagId)
                 .list().stream().map(ArticleTag::getArticleId).toList();
+        if (CollectionUtils.isEmpty(articleIds)) {
+            return new ArrayList<>();
+        }
         return this.listByIds(articleIds);
     }
 
@@ -139,7 +144,72 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article>
         List<Long> articleIds = articleColumnService.lambdaQuery()
                 .eq(ArticleColumn::getColumnId, columnId)
                 .list().stream().map(ArticleColumn::getArticleId).toList();
+        if (CollectionUtils.isEmpty(articleIds)) {
+            return new ArrayList<>();
+        }
         return this.listByIds(articleIds);
+    }
+
+    @Override
+    public ArticleVo getArticleVoById(Long articleId) {
+        if (articleId == null) {
+            return null;
+        }
+        Article article = this.getById(articleId);
+        if (article == null) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "文章不存在");
+        }
+        ArticleVo articleVo = new ArticleVo();
+        BeanUtils.copyProperties(article, articleVo);
+        List<String> tagNames = tagService.getTagsByArticleId(article.getId()).stream().map(Tag::getName).toList();
+        articleVo.setTags(tagNames);
+        List<Comment> comments = commentService.getCommentsByArticleId(articleId);
+        articleVo.setComments(comments);
+        List<Column> columns = columnService.getColumnsByArticleId(article.getId());
+        articleVo.setColumns(columns);
+        return articleVo;
+    }
+
+    @Override
+    public Page<ArticleVo> getArticlePageByColumnId(Long columnId, ArticleRequest request) {
+        int current = request.getCurrent();
+        int pageSize = request.getPageSize();
+        if (columnId == null) {
+            return new Page<>();
+        }
+        Page<ArticleColumn> articleColumnPage = articleColumnService.lambdaQuery()
+                .eq(ArticleColumn::getColumnId, columnId)
+                .orderByDesc(ArticleColumn::getCreateTime)
+                .page(new Page<>(current, pageSize));
+        List<Long> articleIds = articleColumnPage.getRecords().stream().map(ArticleColumn::getId).toList();
+        if (CollectionUtils.isEmpty(articleIds)) {
+            return new Page<>();
+        }
+        List<ArticleVo> articleVos = articleIds.stream().map(this::getArticleVoById).toList();
+        Page<ArticleVo> articleVoPage = new Page<>(current, pageSize, articleVos.size());
+        articleVoPage.setRecords(articleVos);
+        return articleVoPage;
+    }
+
+    @Override
+    public Page<ArticleVo> getArticlePageByTagId(Long tagId, ArticleRequest request) {
+        int current = request.getCurrent();
+        int pageSize = request.getPageSize();
+        if (tagId == null) {
+            return new Page<>();
+        }
+        Page<ArticleTag> articleTagPage = articleTagService.lambdaQuery()
+                .eq(ArticleTag::getTagId, tagId)
+                .orderByDesc(ArticleTag::getCreateTime)
+                .page(new Page<>(current, pageSize));
+        List<Long> articleIds = articleTagPage.getRecords().stream().map(ArticleTag::getId).toList();
+        if (CollectionUtils.isEmpty(articleIds)) {
+            return new Page<>();
+        }
+        List<ArticleVo> articleVos = articleIds.stream().map(this::getArticleVoById).toList();
+        Page<ArticleVo> articleVoPage = new Page<>(current, pageSize, articleVos.size());
+        articleVoPage.setRecords(articleVos);
+        return articleVoPage;
     }
 
 }

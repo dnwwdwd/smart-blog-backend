@@ -24,4 +24,10 @@ public interface ArticleService extends IService<Article> {
     List<Article> getArticlesByTagId(Long tagId);
 
     List<Article> getArticlesByColumnId(Long columnId);
+
+    ArticleVo getArticleVoById(Long articleId);
+
+    Page<ArticleVo> getArticlePageByColumnId(Long columnId, ArticleRequest request);
+
+    Page<ArticleVo> getArticlePageByTagId(Long tagId, ArticleRequest request);
 }

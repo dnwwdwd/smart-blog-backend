@@ -8,7 +8,7 @@
         <id property="id" column="id" jdbcType="BIGINT"/>
         <result property="name" column="name" jdbcType="VARCHAR"/>
         <result property="description" column="description" jdbcType="VARCHAR"/>
-        <result property="cover" column="cover" jdbcType="VARCHAR"/>
+        <result property="coverImage" column="cover_image" jdbcType="VARCHAR"/>
         <result property="categoryId" column="category_id" jdbcType="BIGINT"/>
         <result property="createTime" column="create_time" jdbcType="TIMESTAMP"/>
         <result property="updateTime" column="update_time" jdbcType="TIMESTAMP"/>
@@ -16,7 +16,7 @@
 
     <sql id="Base_Column_List">
         id,name,description,
-        cover,user_id,category_id,
+        coverImage,user_id,category_id,
         create_time,update_time
     </sql>
 </mapper>

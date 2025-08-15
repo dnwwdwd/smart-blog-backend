@@ -2,6 +2,7 @@ package com.burger.smartblog.model.vo;
 
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
+import com.burger.smartblog.model.entity.Column;
 import com.burger.smartblog.model.entity.Comment;
 import lombok.Data;
 
@@ -37,6 +38,8 @@ public class ArticleVo implements Serializable {
     private List<String> tags;
 
     private List<Comment> comments;
+
+    private List<Column> columns;
 
     private Date publishedTime;
 

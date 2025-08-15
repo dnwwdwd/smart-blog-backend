@@ -1,8 +1,12 @@
 package com.burger.smartblog.service;
 
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.burger.smartblog.model.dto.column.ColumnRequest;
 import com.burger.smartblog.model.entity.Column;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.burger.smartblog.model.vo.ColumnVo;
+
+import java.util.List;
 
 /**
 * @author hejiajun
@@ -12,4 +16,8 @@ import com.burger.smartblog.model.vo.ColumnVo;
 public interface ColumnService extends IService<Column> {
 
     ColumnVo getColumnVoById(Long columnId);
+
+    List<Column> getColumnsByArticleId(Long id);
+
+    Page<ColumnVo> getColumnPage(ColumnRequest request);
 }

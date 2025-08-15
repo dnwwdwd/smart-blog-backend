@@ -16,7 +16,7 @@ public class ColumnVo implements Serializable {
 
     private String description;
 
-    private String cover;
+    private String coverImage;
 
     private Long categoryId;
 

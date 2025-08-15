@@ -12,7 +12,7 @@ import lombok.Data;
 /**
  * @TableName column
  */
-@TableName(value = "column")
+@TableName("\"column\"")
 @Data
 public class Column implements Serializable {
     /**
@@ -34,7 +34,7 @@ public class Column implements Serializable {
     /**
      *
      */
-    private String cover;
+    private String coverImage;
 
     /**
      *

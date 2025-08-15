@@ -1,7 +1,9 @@
 package com.burger.smartblog.service.impl;
 
 import cn.hutool.extra.cglib.CglibUtil;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.burger.smartblog.model.dto.tag.TagRequest;
 import com.burger.smartblog.model.entity.Article;
 import com.burger.smartblog.model.entity.ArticleTag;
 import com.burger.smartblog.model.entity.Tag;
@@ -12,6 +14,7 @@ import com.burger.smartblog.service.TagService;
 import com.burger.smartblog.mapper.TagMapper;
 import jakarta.annotation.Resource;
 import org.apache.commons.collections4.CollectionUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 
@@ -52,6 +55,21 @@ public class TagServiceImpl extends ServiceImpl<TagMapper, Tag>
         }
         Tag tag = this.getById(tagId);
         return this.getTagVo(tag);
+    }
+
+    @Override
+    public Page<TagVo> getTagPage(TagRequest request) {
+        String tagName = request.getTagName();
+        int current = request.getCurrent();
+        int pageSize = request.getPageSize();
+        Page<Tag> tagPage = this.lambdaQuery()
+                .like(StringUtils.isNotBlank(tagName), Tag::getName, tagName)
+                .orderByDesc(Tag::getCreateTime)
+                .page(new Page<>(current, pageSize));
+        List<TagVo> tagVos = tagPage.getRecords().stream().map(this::getTagVo).toList();
+        Page<TagVo> tagVoPage = new Page<>(current, pageSize, tagPage.getTotal());
+        tagVoPage.setRecords(tagVos);
+        return tagVoPage;
     }
 
     public TagVo getTagVo(Tag tag) {
