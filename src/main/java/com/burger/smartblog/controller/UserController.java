@@ -6,6 +6,7 @@ import com.burger.smartblog.common.ErrorCode;
 import com.burger.smartblog.common.ResultUtils;
 import com.burger.smartblog.exception.BusinessException;
 import com.burger.smartblog.model.dto.user.UserLoginRequest;
+import com.burger.smartblog.model.dto.user.UserRegisterRequest;
 import com.burger.smartblog.model.vo.LoginUserVO;
 import com.burger.smartblog.service.UserService;
 import jakarta.annotation.Resource;
@@ -44,6 +45,15 @@ public class UserController {
         }
         LoginUserVO loginUserVO = userService.userLogin(userLoginRequest);
         return ResultUtils.success(loginUserVO);
+    }
+
+    @PostMapping("/register")
+    public BaseResponse<Void> userRegister(@RequestBody @Validated UserRegisterRequest userRegisterRequest) {
+        if (userRegisterRequest == null) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        userService.userRegister(userRegisterRequest);
+        return ResultUtils.success();
     }
 
     /**

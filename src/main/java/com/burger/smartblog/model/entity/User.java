@@ -3,15 +3,18 @@ package com.burger.smartblog.model.entity;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
+
 import java.io.Serializable;
 import java.util.Date;
+
 import lombok.Data;
 
 /**
  * 用户
+ *
  * @TableName user
  */
-@TableName(value ="user")
+@TableName(value = "\"user\"")
 @Data
 public class User implements Serializable {
     /**

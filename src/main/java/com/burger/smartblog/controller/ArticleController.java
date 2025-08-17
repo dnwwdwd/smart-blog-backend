@@ -5,6 +5,7 @@ import com.burger.smartblog.common.BaseResponse;
 import com.burger.smartblog.common.ResultUtils;
 import com.burger.smartblog.model.dto.article.ArticlePublishRequest;
 import com.burger.smartblog.model.dto.article.ArticleRequest;
+import com.burger.smartblog.model.entity.Article;
 import com.burger.smartblog.model.vo.ArticleVo;
 import com.burger.smartblog.service.ArticleService;
 import jakarta.validation.Valid;
@@ -55,6 +56,11 @@ public class ArticleController {
     @PostMapping("/tag/get/vo/{tagId}")
     public BaseResponse<Page<ArticleVo>> getArticlePageByTagId(@PathVariable Long tagId, @RequestBody ArticleRequest request) {
         return ResultUtils.success(articleService.getArticlePageByTagId(tagId, request));
+    }
+
+    @PostMapping("/list/all")
+    public BaseResponse<Page<ArticleVo>> getAllArticles(@RequestBody ArticleRequest request) {
+        return ResultUtils.success(articleService.getAllArticles(request));
     }
 
 }

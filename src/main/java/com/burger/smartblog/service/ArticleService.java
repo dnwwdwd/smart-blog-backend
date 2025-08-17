@@ -30,4 +30,6 @@ public interface ArticleService extends IService<Article> {
     Page<ArticleVo> getArticlePageByColumnId(Long columnId, ArticleRequest request);
 
     Page<ArticleVo> getArticlePageByTagId(Long tagId, ArticleRequest request);
+
+    Page<ArticleVo> getAllArticles(ArticleRequest request);
 }

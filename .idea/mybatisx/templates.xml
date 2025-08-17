@@ -68,38 +68,6 @@
             <option name="tableUIInfoList">
               <list>
                 <TableUIInfo>
-                  <option name="className" value="Article" />
-                  <option name="tableName" value="article" />
-                </TableUIInfo>
-                <TableUIInfo>
-                  <option name="className" value="ArticleColumn" />
-                  <option name="tableName" value="article_column" />
-                </TableUIInfo>
-                <TableUIInfo>
-                  <option name="className" value="ArticleTag" />
-                  <option name="tableName" value="article_tag" />
-                </TableUIInfo>
-                <TableUIInfo>
-                  <option name="className" value="ArticleViewRecord" />
-                  <option name="tableName" value="article_view_record" />
-                </TableUIInfo>
-                <TableUIInfo>
-                  <option name="className" value="Column" />
-                  <option name="tableName" value="column" />
-                </TableUIInfo>
-                <TableUIInfo>
-                  <option name="className" value="Comment" />
-                  <option name="tableName" value="comment" />
-                </TableUIInfo>
-                <TableUIInfo>
-                  <option name="className" value="SiteSettings" />
-                  <option name="tableName" value="site_settings" />
-                </TableUIInfo>
-                <TableUIInfo>
-                  <option name="className" value="Tag" />
-                  <option name="tableName" value="tag" />
-                </TableUIInfo>
-                <TableUIInfo>
                   <option name="className" value="User" />
                   <option name="tableName" value="user" />
                 </TableUIInfo>

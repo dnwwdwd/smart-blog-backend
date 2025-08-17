@@ -1,13 +1,12 @@
 package com.burger.smartblog.model.dto.article;
 
-import com.burger.smartblog.common.PageRequest;
 import lombok.Data;
 
 import java.io.Serializable;
 import java.util.List;
 
 @Data
-public class ArticlePublishRequest extends PageRequest implements Serializable {
+public class ArticlePublishRequest implements Serializable {
 
     private String title;
 

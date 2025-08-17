@@ -1,7 +1,7 @@
 package com.burger.smartblog.mapper;
 
-import com.burger.smartblog.model.entity.User;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import com.burger.smartblog.model.entity.User;
 
 /**
 * @author hejiajun

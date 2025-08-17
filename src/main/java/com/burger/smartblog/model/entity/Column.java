@@ -39,11 +39,6 @@ public class Column implements Serializable {
     /**
      *
      */
-    private Long categoryId;
-
-    /**
-     *
-     */
     private Date createTime;
 
     /**

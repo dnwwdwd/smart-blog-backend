@@ -1,8 +1,12 @@
 package com.burger.smartblog.service.impl;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.burger.smartblog.common.ErrorCode;
+import com.burger.smartblog.exception.BusinessException;
 import com.burger.smartblog.mapper.ColumnMapper;
+import com.burger.smartblog.model.dto.column.ColumnDto;
 import com.burger.smartblog.model.dto.column.ColumnRequest;
 import com.burger.smartblog.model.entity.Article;
 import com.burger.smartblog.model.entity.ArticleColumn;
@@ -14,12 +18,11 @@ import com.burger.smartblog.service.ColumnService;
 import jakarta.annotation.Resource;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.BeanUtils;
-import org.springframework.context.annotation.Bean;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Stream;
 
 /**
  * @author hejiajun
@@ -69,6 +72,31 @@ public class ColumnServiceImpl extends ServiceImpl<ColumnMapper, Column>
         Page<ColumnVo> columnVoPage = new Page<>(current, pageSize, columnPage.getTotal());
         columnVoPage.setRecords(columnVos);
         return columnVoPage;
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void deleteColumn(Long columnId) {
+        this.removeById(columnId);
+        articleColumnService.remove(new LambdaQueryWrapper<ArticleColumn>()
+                .eq(ArticleColumn::getColumnId, columnId));
+    }
+
+    @Override
+    public void update(ColumnDto dto) {
+        if (dto.getId() == null) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "专栏 id 不能为空");
+        }
+        Column column = this.getById(dto.getId());
+        BeanUtils.copyProperties(dto, column);
+        this.updateById(column);
+    }
+
+    @Override
+    public void add(ColumnDto dto) {
+        Column column = new Column();
+        BeanUtils.copyProperties(dto, column);
+        this.save(column);
     }
 
     public ColumnVo getColumnVo(Column column) {

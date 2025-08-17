@@ -1,12 +1,9 @@
 package com.burger.smartblog.common;
 
-import com.burger.smartblog.constant.CommonConstant;
 import lombok.Data;
 
 /**
  * 分页请求
- *
-
  */
 @Data
 public class PageRequest {
@@ -26,8 +23,4 @@ public class PageRequest {
      */
     private String sortField;
 
-    /**
-     * 排序顺序（默认升序）
-     */
-    private String sortOrder = CommonConstant.SORT_ORDER_ASC;
 }

@@ -8,6 +8,7 @@ import com.burger.smartblog.common.ErrorCode;
 import com.burger.smartblog.exception.BusinessException;
 import com.burger.smartblog.mapper.UserMapper;
 import com.burger.smartblog.model.dto.user.UserLoginRequest;
+import com.burger.smartblog.model.dto.user.UserRegisterRequest;
 import com.burger.smartblog.model.entity.User;
 import com.burger.smartblog.model.vo.LoginUserVO;
 import com.burger.smartblog.service.UserService;
@@ -55,6 +56,31 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         }
         User user = this.getById(userId);
         return getLoginUserVO(user);
+    }
+
+    @Override
+    public void userRegister(UserRegisterRequest userRegisterRequest) {
+        String userAccount = userRegisterRequest.getUserAccount();
+        String userPassword = userRegisterRequest.getUserPassword();
+        String checkPassword = userRegisterRequest.getCheckPassword();
+        if (!userPassword.equals(checkPassword)) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "两次输入密码不一致");
+        }
+        String encryptPassword = DigestUtils.md5DigestAsHex((SALT + userPassword).getBytes());
+        Long count = this.lambdaQuery()
+                .eq(User::getUserAccount, userAccount)
+                .eq(User::getUserPassword, encryptPassword)
+                .count();
+        if (count > 0) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "账号已存在");
+        }
+        User user = new User();
+        user.setUserAccount(userAccount);
+        user.setUserPassword(encryptPassword);
+        boolean save = this.save(user);
+        if (!save) {
+            throw new BusinessException(ErrorCode.OPERATION_ERROR, "注册失败");
+        }
     }
 
     private LoginUserVO getLoginUserVO(User user) {

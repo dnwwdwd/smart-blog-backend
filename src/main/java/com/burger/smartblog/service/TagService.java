@@ -2,6 +2,7 @@ package com.burger.smartblog.service;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.IService;
+import com.burger.smartblog.model.dto.tag.TagDto;
 import com.burger.smartblog.model.dto.tag.TagRequest;
 import com.burger.smartblog.model.entity.Tag;
 import com.burger.smartblog.model.vo.TagVo;
@@ -20,4 +21,10 @@ public interface TagService extends IService<Tag> {
     TagVo getTagVoById(Long tagId);
 
     Page<TagVo> getTagPage(TagRequest request);
+
+    void update(TagDto dto);
+
+    void addTag(TagDto dto);
+
+    void delete(Long tagId);
 }

@@ -1,8 +1,12 @@
 package com.burger.smartblog.service.impl;
 
 import cn.hutool.extra.cglib.CglibUtil;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.burger.smartblog.common.ErrorCode;
+import com.burger.smartblog.exception.BusinessException;
+import com.burger.smartblog.model.dto.tag.TagDto;
 import com.burger.smartblog.model.dto.tag.TagRequest;
 import com.burger.smartblog.model.entity.Article;
 import com.burger.smartblog.model.entity.ArticleTag;
@@ -70,6 +74,30 @@ public class TagServiceImpl extends ServiceImpl<TagMapper, Tag>
         Page<TagVo> tagVoPage = new Page<>(current, pageSize, tagPage.getTotal());
         tagVoPage.setRecords(tagVos);
         return tagVoPage;
+    }
+
+    @Override
+    public void update(TagDto dto) {
+        if (dto.getId() == null) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "专栏 id 不能为空");
+        }
+        Tag tag = new Tag();
+        BeanUtils.copyProperties(dto, tag);
+        this.updateById(tag);
+    }
+
+    @Override
+    public void addTag(TagDto dto) {
+        Tag tag = new Tag();
+        BeanUtils.copyProperties(dto, tag);
+        this.save(tag);
+    }
+
+    @Override
+    public void delete(Long tagId) {
+        this.removeById(tagId);
+        articleTagService.remove(new LambdaQueryWrapper<ArticleTag>()
+                .eq(ArticleTag::getTagId, tagId));
     }
 
     public TagVo getTagVo(Tag tag) {

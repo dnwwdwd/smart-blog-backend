@@ -1,8 +1,9 @@
 package com.burger.smartblog.service;
 
 import com.burger.smartblog.model.dto.user.UserLoginRequest;
-import com.burger.smartblog.model.entity.User;
+import com.burger.smartblog.model.dto.user.UserRegisterRequest;
 import com.baomidou.mybatisplus.extension.service.IService;
+import com.burger.smartblog.model.entity.User;
 import com.burger.smartblog.model.vo.LoginUserVO;
 
 /**
@@ -15,4 +16,7 @@ public interface UserService extends IService<User> {
     LoginUserVO userLogin(UserLoginRequest userLoginRequest);
 
     LoginUserVO getLoginUser();
+
+    void userRegister(UserRegisterRequest userRegisterRequest);
+
 }

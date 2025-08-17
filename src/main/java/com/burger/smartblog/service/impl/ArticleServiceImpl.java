@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.burger.smartblog.common.ErrorCode;
+import com.burger.smartblog.enums.ArticleStatusEnum;
 import com.burger.smartblog.exception.BusinessException;
 import com.burger.smartblog.mapper.ArticleMapper;
 import com.burger.smartblog.model.dto.article.ArticlePublishRequest;
@@ -103,6 +104,7 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article>
         Page<Article> articlePage = this.lambdaQuery()
                 .like(StringUtils.isNotBlank(request.getTitle()), Article::getTitle, request.getTitle())
                 .orderByDesc(Article::getPublishedTime)
+                .eq(Article::getStatus, ArticleStatusEnum.PUBLISHED.getCode())
                 .page(new Page<>(current, pageSize));
         List<ArticleVo> articleVoList = articlePage.getRecords().stream().map(article -> {
             ArticleVo articleVo = new ArticleVo();
@@ -133,7 +135,11 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article>
         if (CollectionUtils.isEmpty(articleIds)) {
             return new ArrayList<>();
         }
-        return this.listByIds(articleIds);
+        return this.lambdaQuery()
+                .eq(Article::getStatus, ArticleStatusEnum.PUBLISHED.getCode())
+                .in(Article::getId, articleIds)
+                .orderByAsc(Article::getPublishedTime)
+                .list();
     }
 
     @Override
@@ -147,7 +153,11 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article>
         if (CollectionUtils.isEmpty(articleIds)) {
             return new ArrayList<>();
         }
-        return this.listByIds(articleIds);
+        return this.lambdaQuery()
+                .orderByAsc(Article::getPublishedTime)
+                .eq(Article::getStatus, ArticleStatusEnum.PUBLISHED.getCode())
+                .in(Article::getId, articleIds)
+                .list();
     }
 
     @Override
@@ -185,7 +195,12 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article>
         if (CollectionUtils.isEmpty(articleIds)) {
             return new Page<>();
         }
-        List<ArticleVo> articleVos = articleIds.stream().map(this::getArticleVoById).toList();
+        List<Article> articles = this.lambdaQuery()
+                .eq(Article::getStatus, ArticleStatusEnum.PUBLISHED.getCode())
+                .in(Article::getId, articleIds)
+                .orderByAsc(Article::getPublishedTime)
+                .list();
+        List<ArticleVo> articleVos = getArticleVos(articles);
         Page<ArticleVo> articleVoPage = new Page<>(current, pageSize, articleVos.size());
         articleVoPage.setRecords(articleVos);
         return articleVoPage;
@@ -206,10 +221,34 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article>
         if (CollectionUtils.isEmpty(articleIds)) {
             return new Page<>();
         }
-        List<ArticleVo> articleVos = articleIds.stream().map(this::getArticleVoById).toList();
+        List<Article> articles = this.lambdaQuery()
+                .eq(Article::getStatus, ArticleStatusEnum.PUBLISHED.getCode())
+                .in(Article::getId, articleIds)
+                .orderByAsc(Article::getPublishedTime)
+                .list();
+        List<ArticleVo> articleVos = getArticleVos(articles);
         Page<ArticleVo> articleVoPage = new Page<>(current, pageSize, articleVos.size());
         articleVoPage.setRecords(articleVos);
         return articleVoPage;
+    }
+
+    @Override
+    public Page<ArticleVo> getAllArticles(ArticleRequest request) {
+        String title = request.getTitle();
+        Page<Article> articlePage = this.lambdaQuery()
+                .like(StringUtils.isNotBlank(title), Article::getTitle, title)
+                .page(new Page<>(request.getCurrent(), request.getPageSize()));
+        List<ArticleVo> articleVos = getArticleVos(articlePage.getRecords());
+        Page<ArticleVo> articleVoPage = new Page<>(request.getCurrent(), request.getPageSize(), articlePage.getTotal());
+        articleVoPage.setRecords(articleVos);
+        return articleVoPage;
+    }
+
+    private List<ArticleVo> getArticleVos(List<Article> articles) {
+        if (CollectionUtils.isEmpty(articles)) {
+            return new ArrayList<>();
+        }
+        return articles.stream().map(article -> getArticleVoById(article.getId())).toList();
     }
 
 }

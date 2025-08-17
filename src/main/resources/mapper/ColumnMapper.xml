@@ -9,7 +9,6 @@
         <result property="name" column="name" jdbcType="VARCHAR"/>
         <result property="description" column="description" jdbcType="VARCHAR"/>
         <result property="coverImage" column="cover_image" jdbcType="VARCHAR"/>
-        <result property="categoryId" column="category_id" jdbcType="BIGINT"/>
         <result property="createTime" column="create_time" jdbcType="TIMESTAMP"/>
         <result property="updateTime" column="update_time" jdbcType="TIMESTAMP"/>
     </resultMap>
