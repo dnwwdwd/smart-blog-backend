@@ -5,6 +5,7 @@ import com.alibaba.cloud.ai.dashscope.rag.DashScopeCloudStore;
 import com.alibaba.cloud.ai.dashscope.rag.DashScopeStoreOptions;
 import jakarta.annotation.Resource;
 import org.springframework.ai.vectorstore.VectorStore;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -14,12 +15,15 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class VectorStoreConfig {
 
+    @Value("${rag.index-name}")
+    private String indexName;
+
     @Resource
     private DashScopeApi dashScopeApi;
 
     @Bean
     public VectorStore dashScopeCloudStore() {
-        return new DashScopeCloudStore(dashScopeApi, new DashScopeStoreOptions("smart-blog"));
+        return new DashScopeCloudStore(dashScopeApi, new DashScopeStoreOptions(indexName));
     }
 
 }

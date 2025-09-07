@@ -1,10 +1,14 @@
 package com.burger.smartblog.ai.chatmemory;
 
+import cn.hutool.json.JSONObject;
+import cn.hutool.json.JSONUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.burger.smartblog.enums.MessageRoleEnum;
 import com.burger.smartblog.model.entity.ChatMessage;
 import com.burger.smartblog.service.ChatMessageService;
 import com.google.gson.Gson;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import jakarta.annotation.Resource;
 import org.apache.commons.collections4.CollectionUtils;
 import org.springframework.ai.chat.memory.ChatMemory;
@@ -26,14 +30,14 @@ public class ChatMessageMemory implements ChatMemory {
     @Override
     public void add(String conversationId, Message message) {
         ChatMessage chatMessage = this.transferToChatMessage(message);
-        chatMessage.setConversationId(conversationId);
+        chatMessage.setConversationId(Long.valueOf(conversationId));
         chatMessageService.save(chatMessage);
     }
 
     @Override
     public List<Message> get(String conversationId) {
         List<ChatMessage> chatMessages = chatMessageService.lambdaQuery()
-                .eq(ChatMessage::getConversationId, conversationId)
+                .eq(ChatMessage::getConversationId, Long.valueOf(conversationId))
                 .list();
         if (CollectionUtils.isEmpty(chatMessages)) {
             return Collections.emptyList();
@@ -53,7 +57,7 @@ public class ChatMessageMemory implements ChatMemory {
     public void add(String conversationId, List<Message> messages) {
         List<ChatMessage> chatMessages = messages.stream().map(message -> {
             ChatMessage chatMessage = this.transferToChatMessage(message);
-            chatMessage.setConversationId(conversationId);
+            chatMessage.setConversationId(Long.valueOf(conversationId));
             return chatMessage;
         }).toList();
         chatMessageService.saveBatch(chatMessages);
@@ -70,8 +74,12 @@ public class ChatMessageMemory implements ChatMemory {
         Gson gson = new Gson();
         ChatMessage chatMessage = new ChatMessage();
         String role = message.getMessageType().getValue();
+        String messageJson = gson.toJson(message);
         chatMessage.setRole(role);
-        chatMessage.setMetadata(gson.toJson(message));
+        chatMessage.setMetadata(messageJson);
+        JSONObject jsonObj = JSONUtil.parseObj(messageJson);
+        String textContent = jsonObj.getStr("textContent", "");
+        chatMessage.setContent(textContent);
         return chatMessage;
     }
 

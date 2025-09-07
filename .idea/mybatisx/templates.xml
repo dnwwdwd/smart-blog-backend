@@ -68,8 +68,12 @@
             <option name="tableUIInfoList">
               <list>
                 <TableUIInfo>
-                  <option name="className" value="User" />
-                  <option name="tableName" value="user" />
+                  <option name="className" value="ChatMessage" />
+                  <option name="tableName" value="chat_message" />
+                </TableUIInfo>
+                <TableUIInfo>
+                  <option name="className" value="ChatConversation" />
+                  <option name="tableName" value="chat_conversation" />
                 </TableUIInfo>
               </list>
             </option>
