@@ -5,33 +5,27 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
-/**
- *@Author: hejiajun
- *@CreateTime: 2025-08-11
- *@Description:
- */
 @Data
-public class CommentSubmitDto {
-
+public class CommentDto {
     @NotNull(message = "文章 id 不能为空")
     private Long articleId;
-
-    private Long parentId;
 
     @NotBlank(message = "昵称不能为空")
     private String nickname;
 
     @NotBlank(message = "邮件不能为空")
-    private String userEmail;
+    private String email;
 
     @NotBlank(message = "请输入评论内容")
     private String content;
 
-    private String userWebsite;
+    private String website;
+
+    private Long parentId;
+
+    private String avatar;
+
 
     @TableField(exist = false)
     private static final long serialVersionUID = 1L;
-
 }
-
-

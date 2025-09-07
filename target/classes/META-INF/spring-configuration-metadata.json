@@ -1,5 +1,11 @@
 {
-  "groups": [],
+  "groups": [
+    {
+      "name": "oss",
+      "type": "com.burger.smartblog.manager.AliOSSManager",
+      "sourceType": "com.burger.smartblog.manager.AliOSSManager"
+    }
+  ],
   "properties": [
     {
       "name": "cos.client.accessKey",
@@ -20,6 +26,31 @@
       "name": "cos.client.secretKey",
       "type": "java.lang.String",
       "description": "Description for cos.client.secretKey."
+    },
+    {
+      "name": "oss.access-key-id",
+      "type": "java.lang.String",
+      "sourceType": "com.burger.smartblog.manager.AliOSSManager"
+    },
+    {
+      "name": "oss.access-key-secret",
+      "type": "java.lang.String",
+      "sourceType": "com.burger.smartblog.manager.AliOSSManager"
+    },
+    {
+      "name": "oss.bucket-name",
+      "type": "java.lang.String",
+      "sourceType": "com.burger.smartblog.manager.AliOSSManager"
+    },
+    {
+      "name": "oss.endpoint",
+      "type": "java.lang.String",
+      "sourceType": "com.burger.smartblog.manager.AliOSSManager"
+    },
+    {
+      "name": "oss.folder-name",
+      "type": "java.lang.String",
+      "sourceType": "com.burger.smartblog.manager.AliOSSManager"
     },
     {
       "name": "wx.open.appId",

@@ -16,12 +16,14 @@ import com.burger.smartblog.service.ArticleColumnService;
 import com.burger.smartblog.service.ArticleService;
 import com.burger.smartblog.service.ColumnService;
 import jakarta.annotation.Resource;
+import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -56,6 +58,9 @@ public class ColumnServiceImpl extends ServiceImpl<ColumnMapper, Column>
         List<Long> columnIds = articleColumnService.lambdaQuery()
                 .eq(ArticleColumn::getArticleId, id)
                 .list().stream().map(ArticleColumn::getColumnId).toList();
+        if (CollectionUtils.isEmpty(columnIds)) {
+            return Collections.emptyList();
+        }
         return this.listByIds(columnIds);
     }
 

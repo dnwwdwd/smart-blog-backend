@@ -49,6 +49,9 @@ public class TagServiceImpl extends ServiceImpl<TagMapper, Tag>
         List<Long> tagIds = articleTagService.lambdaQuery()
                 .eq(ArticleTag::getArticleId, articleId)
                 .list().stream().map(ArticleTag::getTagId).toList();
+        if (CollectionUtils.isEmpty(tagIds)) {
+            return Collections.emptyList();
+        }
         return this.listByIds(tagIds);
     }
 

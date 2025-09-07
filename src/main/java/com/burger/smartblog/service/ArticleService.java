@@ -2,11 +2,12 @@ package com.burger.smartblog.service;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.IService;
-import com.burger.smartblog.model.dto.article.ArticlePublishRequest;
+import com.burger.smartblog.model.dto.article.ArticleDto;
 import com.burger.smartblog.model.dto.article.ArticleRequest;
 import com.burger.smartblog.model.entity.Article;
 import com.burger.smartblog.model.vo.ArticleVo;
-import jakarta.validation.Valid;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -17,7 +18,9 @@ import java.util.List;
  */
 public interface ArticleService extends IService<Article> {
 
-    void publishArticle(@Valid ArticlePublishRequest articlePublishRequest);
+    Long publishArticle(ArticleDto articleDto);
+
+    void updateArticle(ArticleDto articleDto);
 
     Page<ArticleVo> getArticlePage(ArticleRequest request);
 
@@ -32,4 +35,8 @@ public interface ArticleService extends IService<Article> {
     Page<ArticleVo> getArticlePageByTagId(Long tagId, ArticleRequest request);
 
     Page<ArticleVo> getAllArticles(ArticleRequest request);
+
+    void batchUpload(MultipartFile[] files);
+
+    void batchUploadAndSaveArticles(byte[][] byteList);
 }
