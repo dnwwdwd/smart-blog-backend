@@ -1,4 +1,4 @@
-package com.burger.smartblog.ai.chat;
+package com.burger.smartblog.service.chat;
 
 import cn.dev33.satoken.stp.StpUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
@@ -91,4 +91,5 @@ public class ChatService {
     public Boolean updateChatConversation(ChatConversation chatConversation) {
         return chatConversationService.updateById(chatConversation);
     }
+
 }

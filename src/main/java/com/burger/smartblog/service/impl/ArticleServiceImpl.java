@@ -1,11 +1,11 @@
 package com.burger.smartblog.service.impl;
 
 import cn.hutool.json.JSONUtil;
-import com.alibaba.cloud.ai.dashscope.api.DashScopeApi;
+import com.alibaba.cloud.ai.dashscope.rag.DashScopeCloudStore;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
-import com.burger.smartblog.ai.chat.ChatService;
+import com.burger.smartblog.service.chat.ChatService;
 import com.burger.smartblog.common.ErrorCode;
 import com.burger.smartblog.enums.ArticleStatusEnum;
 import com.burger.smartblog.exception.BusinessException;
@@ -20,7 +20,6 @@ import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
-import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.beans.BeanUtils;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
@@ -64,9 +63,6 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article>
     private ArticleTagService articleTagService;
 
     @Resource
-    private ChatClient chatClient;
-
-    @Resource
     @Lazy
     private ArticleService self;
 
@@ -76,12 +72,14 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article>
     @Resource(name = "articleGeneratorExecutor")
     private java.util.concurrent.Executor articleGeneratorExecutor;
 
+    @Resource
+    private DashScopeCloudStore dashScopeCloudStore;
+
     @Override
     @Transactional(rollbackFor = Exception.class)
     public Long publishArticle(ArticleDto articleDto) {
         Article article = new Article();
         BeanUtils.copyProperties(articleDto, article);
-        // todo 如果 excerpt 为空 AI 生成
         String content = articleDto.getContent();
         // 根据 content 字数设置阅读时间
         if (content.length() < 100) {
@@ -120,6 +118,7 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article>
             articleColumnService.save(articleColumn);
         }
         // todo 文件向量化存储
+
         return article.getId();
     }
 

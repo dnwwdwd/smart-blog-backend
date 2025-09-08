@@ -1,6 +1,6 @@
 package com.burger.smartblog.controller;
 
-import com.burger.smartblog.ai.chat.ChatService;
+import com.burger.smartblog.service.chat.ChatService;
 import com.burger.smartblog.common.BaseResponse;
 import com.burger.smartblog.common.ResultUtils;
 import com.burger.smartblog.model.entity.ChatConversation;
