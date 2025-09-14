@@ -17,6 +17,7 @@
             <result property="seoDescription" column="seo_description" jdbcType="VARCHAR"/>
             <result property="seoKeywords" column="seo_keywords" jdbcType="VARCHAR"/>
             <result property="publishedTime" column="published_time" jdbcType="TIMESTAMP"/>
+            <result property="uploadStatus" column="upload_status" jdbcType="SMALLINT"/>
             <result property="createTime" column="create_time" jdbcType="TIMESTAMP"/>
             <result property="updateTime" column="update_time" jdbcType="TIMESTAMP"/>
     </resultMap>
@@ -26,6 +27,6 @@
         excerpt,cover_image,status,
         read_time,views,seo_title,
         seo_description,seo_keywords,published_time,
-        create_time,update_time
+        upload_status,create_time,update_time
     </sql>
 </mapper>

@@ -10,6 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * @author hejiajun
@@ -36,7 +37,15 @@ public interface ArticleService extends IService<Article> {
 
     Page<ArticleVo> getAllArticles(ArticleRequest request);
 
-    void batchUpload(MultipartFile[] files);
+    // 返回每个文件对应的占位文章ID，便于前端轮询
+    List<Long> batchUpload(MultipartFile[] files);
 
-    void batchUploadAndSaveArticles(byte[][] byteList);
+    // 兼容旧实现，内部可能不再被直接调用
+    void batchUploadAndSaveArticles(byte[][] byteList, List<Long> ids, String[] fileNames);
+
+    // 轮询查询上传状态
+    Map<Long, Integer> getUploadStatuses(List<Long> ids);
+
+    // 针对失败任务的重试
+    void retryUpload(Long id);
 }

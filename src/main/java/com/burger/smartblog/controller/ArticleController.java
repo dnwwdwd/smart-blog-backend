@@ -13,6 +13,9 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.List;
+import java.util.Map;
+
 @RestController
 @RequestMapping("/article")
 @Validated
@@ -73,12 +76,28 @@ public class ArticleController {
     }
 
     @PostMapping("/batch/upload")
-    public BaseResponse<Void> batchUpload(@RequestParam("files") MultipartFile[] files) {
-        articleService.batchUpload(files);
-        return ResultUtils.success();
+    public BaseResponse<List<Long>> batchUpload(@RequestParam("files") MultipartFile[] files) {
+        List<Long> ids = articleService.batchUpload(files);
+        return ResultUtils.success(ids);
     }
 
+    /**
+     * 轮询获取上传处理状态
+     * ids 通过多值参数传递，如 /article/upload/status?ids=1&ids=2
+     */
+    @GetMapping("/upload/status")
+    public BaseResponse<Map<Long, Integer>> getUploadStatuses(@RequestParam("ids") List<Long> ids) {
+        Map<Long, Integer> statusMap = articleService.getUploadStatuses(ids);
+        return ResultUtils.success(statusMap);
+    }
 
-
+    /**
+     * 重试处理失败的上传
+     */
+    @PostMapping("/upload/retry/{id}")
+    public BaseResponse<Void> retryUpload(@PathVariable Long id) {
+        articleService.retryUpload(id);
+        return ResultUtils.success();
+    }
 
 }

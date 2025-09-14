@@ -78,6 +78,11 @@ public class Article implements Serializable {
     private Date publishedTime;
 
     /**
+     * 上传状态
+     */
+    private Integer uploadStatus;
+
+    /**
      *
      */
     private Date createTime;

@@ -40,6 +40,8 @@ public class ArticleVo implements Serializable {
 
     private Date publishedTime;
 
+    private Integer uploadStatus;
+
     private Date createTime;
 
     private Date updateTime;

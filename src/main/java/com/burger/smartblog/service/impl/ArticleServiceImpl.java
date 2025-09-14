@@ -5,9 +5,9 @@ import com.alibaba.cloud.ai.dashscope.rag.DashScopeCloudStore;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
-import com.burger.smartblog.service.chat.ChatService;
 import com.burger.smartblog.common.ErrorCode;
 import com.burger.smartblog.enums.ArticleStatusEnum;
+import com.burger.smartblog.enums.UploadStatusEnum;
 import com.burger.smartblog.exception.BusinessException;
 import com.burger.smartblog.mapper.ArticleMapper;
 import com.burger.smartblog.model.dto.article.ArticleDto;
@@ -16,6 +16,8 @@ import com.burger.smartblog.model.entity.*;
 import com.burger.smartblog.model.vo.ArticleVo;
 import com.burger.smartblog.model.vo.CommentVo;
 import com.burger.smartblog.service.*;
+import com.burger.smartblog.service.chat.ChatService;
+import com.burger.smartblog.service.chat.RagService;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections4.CollectionUtils;
@@ -31,6 +33,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
@@ -73,7 +76,7 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article>
     private java.util.concurrent.Executor articleGeneratorExecutor;
 
     @Resource
-    private DashScopeCloudStore dashScopeCloudStore;
+    private RagService ragService;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -274,10 +277,22 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article>
     }
 
     @Override
-    public void batchUpload(MultipartFile[] files) {
+    public List<Long> batchUpload(MultipartFile[] files) {
         if (files == null || files.length == 0) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "请上传文件");
         }
+
+        // 1) 先为每个文件创建占位记录，返回 ID 列表
+        List<Long> ids = new ArrayList<>();
+        for (int i = 0; i < files.length; i++) {
+            Article placeholder = new Article();
+            placeholder.setUploadStatus(UploadStatusEnum.UPLOADING.getCode());
+            placeholder.setStatus(ArticleStatusEnum.DRAFT.getCode());
+            this.save(placeholder);
+            ids.add(placeholder.getId());
+        }
+
+        // 2) 读取字节数组 + 原始文件名，开启异步处理：按顺序映射到对应的占位 ID
         byte[][] byteList = Arrays.stream(files)
                 .map(file -> {
                     try {
@@ -287,40 +302,87 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article>
                     }
                 })
                 .toArray(byte[][]::new);
-        // 使用 CompletableFuture.runAsync 异步上传，并在失败时记录日志且确保事务回滚
+
+        String[] fileNames = new String[files.length];
+        for (int i = 0; i < files.length; i++) {
+            String name = files[i].getOriginalFilename();
+            fileNames[i] = StringUtils.isNotBlank(name) ? name : ("upload-" + i + ".txt");
+        }
+
         CompletableFuture.runAsync(() -> {
             try {
-                self.batchUploadAndSaveArticles(byteList);
+                self.batchUploadAndSaveArticles(byteList, ids, fileNames);
             } catch (Exception e) {
-                log.error("批量上传文章失败，已回滚事务", e);
-                throw e; // 继续抛出以触发事务回滚
+                log.error("批量上传异步任务执行失败", e);
             }
         }, articleGeneratorExecutor);
+
+        return ids;
     }
 
     @Transactional(rollbackFor = Exception.class)
     @Override
-    public void batchUploadAndSaveArticles(byte[][] byteList) {
-        log.info("批量上传文章开始");
-        List<Article> articles = new ArrayList<>();
-        for (byte[] bytes : byteList) {
-            // todo 文件大小限制
-            String articleContent = this.bytesToString(bytes);
-            // todo 文件内容判断重复
-            Article article = new Article();
-            Article tmpArticle = article;
-            article.setContent(articleContent);
-            article = chatService.generateArticleMetaData(tmpArticle);
-            article.setStatus(ArticleStatusEnum.PUBLISHED.getCode());
-            if (articleContent.length() < 100) {
-                article.setReadTime(1);
-            } else {
-                int readTime = articleContent.length() / 100;
-                article.setReadTime(readTime);
-            }
-            articles.add(article);
+    public void batchUploadAndSaveArticles(byte[][] byteList, List<Long> ids, String[] fileNames) {
+        log.info("批量上传文章开始，共 {} 篇", byteList == null ? 0 : byteList.length);
+        if (byteList == null || byteList.length == 0 || ids == null || ids.isEmpty()) {
+            return;
         }
-        this.saveBatch(articles);
+        int total = Math.min(byteList.length, ids.size());
+        for (int i = 0; i < total; i++) {
+            byte[] bytes = byteList[i];
+            Long articleId = ids.get(i);
+            String originalName = (fileNames != null && fileNames.length > i && StringUtils.isNotBlank(fileNames[i]))
+                    ? fileNames[i] : ("upload-" + i + ".txt");
+
+            try {
+                // 解析内容并生成元数据
+                String articleContent = this.bytesToString(bytes);
+                Article toGen = new Article();
+                toGen.setContent(articleContent);
+                Article generated = chatService.generateArticleMetaData(toGen);
+
+                // 标题唯一性校验：若已存在同名文章，则标记失败并跳过
+                String genTitle2 = generated.getTitle();
+                if (StringUtils.isNotBlank(genTitle2) && this.lambdaQuery().eq(Article::getTitle, genTitle2).count() > 0) {
+                    Article dupUpdate = new Article();
+                    dupUpdate.setId(articleId);
+                    dupUpdate.setContent(articleContent);
+                    dupUpdate.setUploadStatus(UploadStatusEnum.FAILED.getCode());
+                    this.updateById(dupUpdate);
+                    log.warn("批量上传：检测到重复标题，已拒绝上传并标记失败，title={}", genTitle2);
+                    continue;
+                }
+
+                // 计算阅读时间
+                int readTime = (articleContent != null && articleContent.length() >= 100)
+                        ? articleContent.length() / 100 : 1;
+
+                // 将生成结果回写到同一条记录，并标记成功
+                Article toUpdate = new Article();
+                toUpdate.setId(articleId);
+                toUpdate.setTitle(generated.getTitle());
+                toUpdate.setContent(articleContent);
+                toUpdate.setExcerpt(generated.getExcerpt());
+                toUpdate.setCoverImage(generated.getCoverImage());
+                toUpdate.setSeoTitle(generated.getSeoTitle());
+                toUpdate.setSeoDescription(generated.getSeoDescription());
+                toUpdate.setSeoKeywords(generated.getSeoKeywords());
+                toUpdate.setReadTime(readTime);
+                toUpdate.setStatus(ArticleStatusEnum.PUBLISHED.getCode());
+                toUpdate.setUploadStatus(UploadStatusEnum.SUCCESS.getCode());
+                this.updateById(toUpdate);
+
+                // 将文件向量存储到知识库（携带原始文件名）
+                ragService.storeFileToDashScopeCloudStore(bytes, originalName);
+
+            } catch (Exception ex) {
+                log.error("单篇文章上传处理失败，articleId={}。将标记为失败", articleId, ex);
+                Article failUpdate = new Article();
+                failUpdate.setId(articleId);
+                failUpdate.setUploadStatus(UploadStatusEnum.FAILED.getCode());
+                this.updateById(failUpdate);
+            }
+        }
         log.info("批量上传文章结束");
     }
 
@@ -337,16 +399,6 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article>
             return new String(bytes, 3, bytes.length - 3, StandardCharsets.UTF_8);
         }
         return new String(bytes, StandardCharsets.UTF_8);
-    }
-
-    public boolean generateArticleMetaData(Long articleId) {
-        if (articleId == null) {
-            throw new BusinessException(ErrorCode.PARAMS_ERROR);
-        }
-        Article article = this.getById(articleId);
-        Article tmpArticle = article;
-        article = chatService.generateArticleMetaData(tmpArticle);
-        return this.updateById(article);
     }
 
     @Override
@@ -407,7 +459,74 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article>
             }
         }
 
-        // todo 文件向量化存储
+    }
+
+    @Override
+    public Map<Long, Integer> getUploadStatuses(List<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return Map.of();
+        }
+        List<Article> list = this.lambdaQuery().in(Article::getId, ids).list();
+        return list.stream().collect(Collectors.toMap(Article::getId, Article::getUploadStatus));
+    }
+
+    @Override
+    public void retryUpload(Long id) {
+        if (id == null) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "id 不能为空");
+        }
+        Article db = this.getById(id);
+        if (db == null) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "文章不存在");
+        }
+        String content = db.getContent();
+        if (StringUtils.isBlank(content)) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "原文内容为空，无法重试");
+        }
+        // 标记为处理中
+        Article updating = new Article();
+        updating.setId(id);
+        updating.setUploadStatus(UploadStatusEnum.UPLOADING.getCode());
+        this.updateById(updating);
+
+        CompletableFuture.runAsync(() -> {
+            try {
+                Article toGen = new Article();
+                toGen.setContent(content);
+                Article generated = chatService.generateArticleMetaData(toGen);
+
+                // 标题唯一性校验（重试上传）：若已存在同名文章，则标记失败并退出
+                String retryTitle = generated.getTitle();
+                if (StringUtils.isNotBlank(retryTitle) && this.lambdaQuery().eq(Article::getTitle, retryTitle).count() > 0) {
+                    Article dup = new Article();
+                    dup.setId(id);
+                    dup.setUploadStatus(UploadStatusEnum.FAILED.getCode());
+                    this.updateById(dup);
+                    log.warn("重试上传：检测到重复标题，已拒绝上传并标记失败，title={}", retryTitle);
+                    return;
+                }
+
+                int readTime = (content.length() >= 100) ? content.length() / 100 : 1;
+                Article toUpdate = new Article();
+                toUpdate.setId(id);
+                toUpdate.setTitle(generated.getTitle());
+                toUpdate.setExcerpt(generated.getExcerpt());
+                toUpdate.setCoverImage(generated.getCoverImage());
+                toUpdate.setSeoTitle(generated.getSeoTitle());
+                toUpdate.setSeoDescription(generated.getSeoDescription());
+                toUpdate.setSeoKeywords(generated.getSeoKeywords());
+                toUpdate.setReadTime(readTime);
+                toUpdate.setStatus(ArticleStatusEnum.PUBLISHED.getCode());
+                toUpdate.setUploadStatus(UploadStatusEnum.SUCCESS.getCode());
+                this.updateById(toUpdate);
+            } catch (Exception ex) {
+                log.error("重试处理失败，articleId={}。将标记为失败", id, ex);
+                Article failUpdate = new Article();
+                failUpdate.setId(id);
+                failUpdate.setUploadStatus(UploadStatusEnum.FAILED.getCode());
+                this.updateById(failUpdate);
+            }
+        }, articleGeneratorExecutor);
     }
 
 }
