@@ -1,14 +1,11 @@
-# Docker 镜像构建
+# 基础镜像
+FROM openjdk:21
 
-FROM maven:3.8.1-jdk-8-slim as builder
+# 复制主机jar包至镜像内，复制的目录需放置在 Dockerfile 文件同级目录下
+COPY target/smart-blog-backend-0.0.1.jar app.jar
 
-# Copy local code to the container image.
-WORKDIR /app
-COPY pom.xml .
-COPY src ./src
+# 容器启动执行命令
+ENTRYPOINT ["java", "-jar", "/app.jar"]
 
-# Build a release artifact.
-RUN mvn package -DskipTests
-
-# Run the web service on container startup.
-CMD ["java","-jar","/app/target/springboot-init-0.0.1-SNAPSHOT.jar","--spring.profiles.active=prod"]
+# 对外暴露的端口号
+EXPOSE 8888
