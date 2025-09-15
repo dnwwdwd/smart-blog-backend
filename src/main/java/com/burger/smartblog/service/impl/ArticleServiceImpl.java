@@ -1,7 +1,7 @@
 package com.burger.smartblog.service.impl;
 
+import cn.hutool.core.io.FileUtil;
 import cn.hutool.json.JSONUtil;
-import com.alibaba.cloud.ai.dashscope.rag.DashScopeCloudStore;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
@@ -132,6 +132,7 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article>
         Page<Article> articlePage = this.lambdaQuery()
                 .like(StringUtils.isNotBlank(request.getTitle()), Article::getTitle, request.getTitle())
                 .orderByDesc(Article::getPublishedTime)
+                .orderByDesc(Article::getUpdateTime)
                 .eq(Article::getStatus, ArticleStatusEnum.PUBLISHED.getCode())
                 .page(new Page<>(current, pageSize));
         List<ArticleVo> articleVoList = articlePage.getRecords().stream().map(article -> {
@@ -360,7 +361,7 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article>
                 // 将生成结果回写到同一条记录，并标记成功
                 Article toUpdate = new Article();
                 toUpdate.setId(articleId);
-                toUpdate.setTitle(generated.getTitle());
+                toUpdate.setTitle(FileUtil.mainName(originalName));
                 toUpdate.setContent(articleContent);
                 toUpdate.setExcerpt(generated.getExcerpt());
                 toUpdate.setCoverImage(generated.getCoverImage());
