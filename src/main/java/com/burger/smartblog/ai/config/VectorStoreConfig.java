@@ -1,6 +1,7 @@
 package com.burger.smartblog.ai.config;
 
 import com.alibaba.cloud.ai.dashscope.api.DashScopeApi;
+import com.alibaba.cloud.ai.dashscope.embedding.DashScopeEmbeddingOptions;
 import com.alibaba.cloud.ai.dashscope.rag.DashScopeCloudStore;
 import com.alibaba.cloud.ai.dashscope.rag.DashScopeStoreOptions;
 import jakarta.annotation.Resource;
@@ -23,7 +24,11 @@ public class VectorStoreConfig {
 
     @Bean
     public VectorStore dashScopeCloudStore() {
-        return new DashScopeCloudStore(dashScopeApi, new DashScopeStoreOptions(indexName));
+        DashScopeEmbeddingOptions dashScopeEmbeddingOptions = new DashScopeEmbeddingOptions();
+        dashScopeEmbeddingOptions.setModel("text-embedding-v4");
+        DashScopeStoreOptions dashScopeStoreOptions = new DashScopeStoreOptions(indexName);
+        dashScopeStoreOptions.setEmbeddingOptions(dashScopeEmbeddingOptions);
+        return new DashScopeCloudStore(dashScopeApi, dashScopeStoreOptions);
     }
 
 }

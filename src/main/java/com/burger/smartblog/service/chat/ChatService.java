@@ -41,13 +41,17 @@ public class ChatService {
     private ChatConversationService chatConversationService;
 
     public Article generateArticleMetaData(Article tmpArticle) {
-        log.info("开始生成文章：{} 元数据", tmpArticle);
+        log.info("开始生成文章：{} 元数据", tmpArticle.getTitle());
+        String articleContent = tmpArticle.getContent();
+        String truncatedContent = articleContent.length() > 300 ? articleContent.substring(0, 300) : articleContent;
         Article article = chatClient.prompt()
-                .user(u -> u.text("根据这个文章的内容：{article} ，生成对应的 title（18字以内）、 excerpt（50字以内）" +
+                .user(u -> u.text("根据这个文章的内容：{article} ，生成对应的excerpt（50字以内）" +
                                 "、seoTitle（15字以内）、seoDescription（20字以内）、seoKeywords（3~5 个即可，且格式为json数组）字段，" +
-                                "并且确保 title、excerpt、seoTitle、seoDescription、seoKeywords 这 5 个字段的内容必须是中文，注意其他的字段的内容不要变动")
-                        .params(Map.of("article", tmpArticle))).call().entity(Article.class);
-        log.info("文章：{} 元数据生成完成", tmpArticle);
+                                "并且确保excerpt、seoTitle、seoDescription、seoKeywords 这 5 个字段的内容必须是中文，注意其他的字段的内容不要变动")
+                        .params(Map.of("article", truncatedContent)))
+                .call().entity(Article.class);
+
+        log.info("文章：{} 元数据生成完成", tmpArticle.getTitle());
         return article;
     }
 
