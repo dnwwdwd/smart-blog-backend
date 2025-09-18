@@ -17,4 +17,5 @@ public class CommentVo implements Serializable {
     private String avatar;
     private List<CommentVo> replies;
     private LocalDateTime createTime;
+    private Long userId;
 }

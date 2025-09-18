@@ -1,13 +1,19 @@
 package com.burger.smartblog.service.impl;
 
+import cn.dev33.satoken.stp.StpUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.burger.smartblog.common.ErrorCode;
+import com.burger.smartblog.exception.BusinessException;
 import com.burger.smartblog.mapper.CommentMapper;
 import com.burger.smartblog.model.dto.comment.CommentDto;
 import com.burger.smartblog.model.entity.Comment;
 import com.burger.smartblog.model.vo.CommentVo;
 import com.burger.smartblog.service.CommentService;
+import com.burger.smartblog.service.UserService;
+import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -32,6 +38,12 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper, Comment>
         String email = dto.getEmail();
         String website = dto.getWebsite();
         Long parentId = dto.getParentId();
+
+        if (!StpUtil.isLogin()) {
+            if (StringUtils.isAnyBlank(nickname, email)) {
+                throw new BusinessException(ErrorCode.PARAMS_ERROR, "昵称和邮箱不能为空");
+            }
+        }
 
         if (parentId != null && parentId > 0) {
             Long count = this.lambdaQuery()
@@ -62,6 +74,9 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper, Comment>
         entity.setUserAgent(ua);
         entity.setCreateTime(now);
         entity.setUpdateTime(now);
+        if (StpUtil.isLogin()) {
+            entity.setUserId(StpUtil.getLoginIdAsLong());
+        }
         this.save(entity);
     }
 
@@ -90,8 +105,9 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper, Comment>
             vo.setWebsite(entity.getUserWebsite());
             vo.setContent(entity.getContent());
             vo.setAvatar(entity.getUserAvatar());
-            vo.setCreateTime(entity.getCreateTime()); // 👈 新增字段，方便排序
+            vo.setCreateTime(entity.getCreateTime());
             vo.setReplies(new ArrayList<>());
+            vo.setUserId(entity.getUserId());
             voMap.put(entity.getId(), vo);
         }
 

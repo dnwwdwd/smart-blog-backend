@@ -17,12 +17,13 @@
             <result property="userAgent" column="user_agent" jdbcType="VARCHAR"/>
             <result property="createTime" column="create_time" jdbcType="TIMESTAMP"/>
             <result property="updateTime" column="update_time" jdbcType="TIMESTAMP"/>
+            <result property="userId" column="user_id" jdbcType="BIGINT"/>
     </resultMap>
 
     <sql id="Base_Column_List">
         id,article_id,parent_id,
         nickname,user_email,user_website,
         user_avatar,content,ip_address,
-        user_agent,create_time,update_time
+        user_agent,create_time,update_time,user_id
     </sql>
 </mapper>

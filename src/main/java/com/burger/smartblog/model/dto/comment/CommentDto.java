@@ -10,10 +10,8 @@ public class CommentDto {
     @NotNull(message = "文章 id 不能为空")
     private Long articleId;
 
-    @NotBlank(message = "昵称不能为空")
     private String nickname;
 
-    @NotBlank(message = "邮件不能为空")
     private String email;
 
     @NotBlank(message = "请输入评论内容")
@@ -24,7 +22,6 @@ public class CommentDto {
     private Long parentId;
 
     private String avatar;
-
 
     @TableField(exist = false)
     private static final long serialVersionUID = 1L;

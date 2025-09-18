@@ -79,6 +79,9 @@ public class Comment implements Serializable {
      */
     private LocalDateTime updateTime;
 
+    private Long userId;
+
     @TableField(exist = false)
     private static final long serialVersionUID = 1L;
+
 }
