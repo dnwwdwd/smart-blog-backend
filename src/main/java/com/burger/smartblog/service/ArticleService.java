@@ -48,4 +48,7 @@ public interface ArticleService extends IService<Article> {
 
     // 针对失败任务的重试
     void retryUpload(Long id);
+
+    // 删除文章
+    void deleteArticle(Long articleId);
 }

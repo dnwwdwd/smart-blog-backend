@@ -1,8 +1,11 @@
 package com.burger.smartblog.controller;
 
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.burger.smartblog.common.BaseResponse;
 import com.burger.smartblog.common.ResultUtils;
 import com.burger.smartblog.model.dto.comment.CommentDto;
+import com.burger.smartblog.model.dto.comment.CommentRequest;
+import com.burger.smartblog.model.vo.CommentAdminVo;
 import com.burger.smartblog.model.vo.CommentVo;
 import com.burger.smartblog.service.CommentService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -46,6 +49,14 @@ public class CommentController {
     public BaseResponse<List<CommentVo>> getComment(@PathVariable Long articleId) {
         List<CommentVo> comments = commentService.getCommentsByArticleId(articleId);
         return ResultUtils.success(comments);
+    }
+
+    /**
+     * 评论管理分页
+     */
+    @PostMapping("/page")
+    public BaseResponse<Page<CommentAdminVo>> getCommentPage(@RequestBody CommentRequest request) {
+        return ResultUtils.success(commentService.getCommentPage(request));
     }
 
     @PostMapping("/delete/{id}")

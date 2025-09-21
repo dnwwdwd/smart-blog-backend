@@ -1,8 +1,11 @@
 package com.burger.smartblog.service;
 
 import com.baomidou.mybatisplus.extension.service.IService;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.burger.smartblog.model.dto.comment.CommentDto;
+import com.burger.smartblog.model.dto.comment.CommentRequest;
 import com.burger.smartblog.model.entity.Comment;
+import com.burger.smartblog.model.vo.CommentAdminVo;
 import com.burger.smartblog.model.vo.CommentVo;
 import jakarta.servlet.http.HttpServletRequest;
 
@@ -20,4 +23,6 @@ public interface CommentService extends IService<Comment> {
     List<CommentVo> getCommentsByArticleId(Long articleId);
 
     void remove(Long id);
+
+    Page<CommentAdminVo> getCommentPage(CommentRequest request);
 }

@@ -50,7 +50,7 @@ public class FriendLinkRequest extends PageRequest implements Serializable {
      */
     private Integer sortOrder;
 
-    private String searchKeyword;
+    private Integer status;
 
     private static final long serialVersionUID = 1L;
 

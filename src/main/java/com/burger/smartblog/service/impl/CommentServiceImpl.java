@@ -2,23 +2,31 @@ package com.burger.smartblog.service.impl;
 
 import cn.dev33.satoken.stp.StpUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.burger.smartblog.common.ErrorCode;
 import com.burger.smartblog.exception.BusinessException;
 import com.burger.smartblog.mapper.CommentMapper;
 import com.burger.smartblog.model.dto.comment.CommentDto;
+import com.burger.smartblog.model.dto.comment.CommentRequest;
+import com.burger.smartblog.model.entity.Article;
 import com.burger.smartblog.model.entity.Comment;
+import com.burger.smartblog.model.vo.CommentAdminVo;
 import com.burger.smartblog.model.vo.CommentVo;
+import com.burger.smartblog.service.ArticleService;
 import com.burger.smartblog.service.CommentService;
 import com.burger.smartblog.service.UserService;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
+import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * @author hejiajun
@@ -28,6 +36,11 @@ import java.util.*;
 @Service
 public class CommentServiceImpl extends ServiceImpl<CommentMapper, Comment>
         implements CommentService {
+
+    @Resource
+    private ArticleService articleService;
+    @Resource
+    private CommentMapper commentMapper;
 
     @Override
     public void createComment(CommentDto dto, HttpServletRequest request) {
@@ -150,6 +163,15 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper, Comment>
         }
     }
 
+    @Override
+    public Page<CommentAdminVo> getCommentPage(CommentRequest request) {
+        int current = request.getCurrent();
+        int pageSize = request.getPageSize();
+        // 直接走自定义 SQL（JOIN article 获取标题）
+        Page<CommentAdminVo> page = commentMapper.selectCommentAdminPage(new Page<>(current, pageSize),
+                request.getArticleId(), request.getSearchKeyword());
+        return page;
+    }
 }
 
 

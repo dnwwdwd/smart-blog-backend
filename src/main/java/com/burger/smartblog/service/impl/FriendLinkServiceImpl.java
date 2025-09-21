@@ -58,8 +58,8 @@ public class FriendLinkServiceImpl extends ServiceImpl<FriendLinkMapper, FriendL
         int pageSize = request.getPageSize();
         Page<FriendLink> friendLinkPage = this
                 .lambdaQuery()
-                .like(StringUtils.isNotBlank(request.getSearchKeyword()), FriendLink::getName, request.getSearchKeyword())
-                .eq(FriendLink::getStatus, FriendLinkEnum.NORMAL.getCode())
+                .like(StringUtils.isNotBlank(request.getName()), FriendLink::getName, request.getName())
+                .eq(request.getStatus() != null, FriendLink::getStatus, request.getStatus())
                 .orderByAsc(FriendLink::getSortOrder)
                 .page(new Page<>(current, pageSize));
 
@@ -93,12 +93,12 @@ public class FriendLinkServiceImpl extends ServiceImpl<FriendLinkMapper, FriendL
         BeanUtils.copyProperties(dto, friendLink);
         this.updateById(friendLink);
         List<SocialLinkAddDto> socialLinkAddDtos = dto.getSocialLinks();
-        List<SocialLink> socialLinks = socialLinkAddDtos.stream().map(socialLinkAddDto -> {
-            SocialLink socialLink = new SocialLink();
-            BeanUtils.copyProperties(socialLinkAddDto, socialLink);
-            return socialLink;
-        }).toList();
-        if (CollectionUtils.isNotEmpty(socialLinks)) {
+        if (CollectionUtils.isNotEmpty(socialLinkAddDtos)) {
+            List<SocialLink> socialLinks = socialLinkAddDtos.stream().map(socialLinkAddDto -> {
+                SocialLink socialLink = new SocialLink();
+                BeanUtils.copyProperties(socialLinkAddDto, socialLink);
+                return socialLink;
+            }).toList();
             socialLinkService.updateBatchById(socialLinks);
         }
     }

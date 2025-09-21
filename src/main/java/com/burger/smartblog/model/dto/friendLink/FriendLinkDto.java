@@ -37,8 +37,18 @@ public class FriendLinkDto implements Serializable {
     @NotBlank(message = "网站链接不能为空")
     private String url;
 
+    /**
+     * 是否为特殊链接
+     */
+    private Boolean isSpecial;
+
     @NotEmpty
     private List<SocialLinkAddDto> socialLinks;
+
+    /**
+     * 状态标签
+     */
+    private String statusLabel;
 
     /**
      * 排序权重

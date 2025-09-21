@@ -3,6 +3,7 @@ package com.burger.smartblog.controller;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.burger.smartblog.common.BaseResponse;
 import com.burger.smartblog.common.ResultUtils;
+import com.burger.smartblog.enums.FriendLinkEnum;
 import com.burger.smartblog.model.dto.friendLink.FriendLinkDto;
 import com.burger.smartblog.model.dto.friendLink.FriendLinkRequest;
 import com.burger.smartblog.model.vo.FriendLinkVo;
@@ -27,6 +28,14 @@ public class FriendLinkController {
         return ResultUtils.success();
     }
 
+    @PostMapping("/apply")
+    public BaseResponse<Void> applyFriendLink(@RequestBody @Valid FriendLinkDto dto) {
+        // 申请友链时强制设置状态为0（待审核）
+        dto.setStatus(FriendLinkEnum.DRAFT.getCode());
+        friendLinkService.addFriendLink(dto);
+        return ResultUtils.success();
+    }
+
     @PostMapping("/page")
     public BaseResponse<Page<FriendLinkVo>> getFriendLinkPage(@RequestBody FriendLinkRequest request) {
         return ResultUtils.success(friendLinkService.getFriendLinkPage(request));
@@ -43,8 +52,4 @@ public class FriendLinkController {
         friendLinkService.updateFriendLink(dto);
         return ResultUtils.success();
     }
-
-
-
-
 }

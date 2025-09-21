@@ -50,6 +50,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
 
     @Override
     public LoginUserVO getLoginUser() {
+        if (!StpUtil.isLogin()) {
+            throw new BusinessException(ErrorCode.NOT_LOGIN_ERROR);
+        }
         Long userId = StpUtil.getLoginIdAsLong();
         User user = this.getById(userId);
         return getLoginUserVO(user);

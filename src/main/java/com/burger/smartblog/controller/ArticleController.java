@@ -50,7 +50,6 @@ public class ArticleController {
     @PostMapping("/page")
     public BaseResponse<Page<ArticleVo>> getArticlePage(@RequestBody ArticleRequest request) {
         Page<ArticleVo> page = articleService.getArticlePage(request);
-        System.out.println("我被调用了");
         return ResultUtils.success(page);
     }
 
@@ -100,4 +99,9 @@ public class ArticleController {
         return ResultUtils.success();
     }
 
+    @PostMapping("/delete/{articleId}")
+    public BaseResponse<Void> deleteArticle(@PathVariable Long articleId) {
+        articleService.deleteArticle(articleId);
+        return ResultUtils.success();
+    }
 }

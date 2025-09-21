@@ -26,4 +26,52 @@
         user_avatar,content,ip_address,
         user_agent,create_time,update_time,user_id
     </sql>
+
+    <resultMap id="CommentAdminVoMap" type="com.burger.smartblog.model.vo.CommentAdminVo">
+        <id property="id" column="id" />
+        <result property="articleId" column="article_id" />
+        <result property="articleTitle" column="article_title" />
+        <result property="parentId" column="parent_id" />
+        <result property="nickname" column="nickname" />
+        <result property="userEmail" column="user_email" />
+        <result property="userWebsite" column="user_website" />
+        <result property="userAvatar" column="user_avatar" />
+        <result property="content" column="content" />
+        <result property="ipAddress" column="ip_address" />
+        <result property="userAgent" column="user_agent" />
+        <result property="createTime" column="create_time" />
+        <result property="userId" column="user_id" />
+    </resultMap>
+
+    <select id="selectCommentAdminPage" resultMap="CommentAdminVoMap">
+        SELECT
+            c.id,
+            c.article_id,
+            a.title AS article_title,
+            c.parent_id,
+            c.nickname,
+            c.user_email,
+            c.user_website,
+            c.user_avatar,
+            c.content,
+            c.ip_address,
+            c.user_agent,
+            c.create_time,
+            c.user_id
+        FROM comment c
+        LEFT JOIN article a ON a.id = c.article_id
+        <where>
+            <if test="articleId != null">
+                AND c.article_id = #{articleId}
+            </if>
+            <if test="searchKeyword != null and searchKeyword != ''">
+                AND (
+                    c.nickname LIKE CONCAT('%',#{searchKeyword},'%')
+                    OR c.user_email LIKE CONCAT('%',#{searchKeyword},'%')
+                    OR c.content LIKE CONCAT('%',#{searchKeyword},'%')
+                )
+            </if>
+        </where>
+        ORDER BY c.create_time DESC
+    </select>
 </mapper>

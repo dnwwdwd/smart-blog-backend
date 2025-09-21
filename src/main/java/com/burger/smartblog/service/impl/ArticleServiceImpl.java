@@ -530,6 +530,22 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article>
         }, articleGeneratorExecutor);
     }
 
+    @Transactional(rollbackFor = Exception.class)
+    @Override
+    public void deleteArticle(Long articleId) {
+        if (articleId == null) {
+            return;
+        }
+        // 删除文章与关联关系、评论
+        // 1) 删除标签关联
+        articleTagService.remove(new LambdaQueryWrapper<ArticleTag>().eq(ArticleTag::getArticleId, articleId));
+        // 2) 删除专栏关联
+        articleColumnService.remove(new LambdaQueryWrapper<ArticleColumn>().eq(ArticleColumn::getArticleId, articleId));
+        // 3) 删除评论
+        commentService.remove(new LambdaQueryWrapper<Comment>().eq(Comment::getArticleId, articleId));
+        // 4) 删除文章本身
+        this.removeById(articleId);
+    }
 }
 
 
