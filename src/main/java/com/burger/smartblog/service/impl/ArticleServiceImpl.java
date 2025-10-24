@@ -30,10 +30,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
@@ -545,6 +542,137 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article>
         commentService.remove(new LambdaQueryWrapper<Comment>().eq(Comment::getArticleId, articleId));
         // 4) 删除文章本身
         this.removeById(articleId);
+    }
+
+    @Override
+    public List<ArticleVo> recommendArticles(Long articleId, int limit) {
+        if (limit <= 0) {
+            limit = 5;
+        }
+        if (articleId == null) {
+            // 随机推荐 - 使用随机ID范围查询避免全表扫描
+            Long maxId = this.getBaseMapper().selectCount(null) > 0 ? 
+                this.lambdaQuery().orderByDesc(Article::getId).last("LIMIT 1").one().getId() : 0L;
+            
+            if (maxId <= 0) {
+                return new ArrayList<>();
+            }
+            
+            Set<Long> randomIds = new HashSet<>();
+            Random random = new Random();
+            int attempts = 0;
+            
+            while (randomIds.size() < limit && attempts < limit * 3) {
+                Long randomId = (long) (random.nextInt(maxId.intValue()) + 1);
+                Article article = this.getById(randomId);
+                if (article != null && ArticleStatusEnum.PUBLISHED.getCode().equals(article.getStatus())) {
+                    randomIds.add(randomId);
+                }
+                attempts++;
+            }
+            
+            if (randomIds.isEmpty()) {
+                return new ArrayList<>();
+            }
+            
+            return this.lambdaQuery()
+                    .in(Article::getId, randomIds)
+                    .list()
+                    .stream()
+                    .map(article -> getArticleVoById(article.getId()))
+                    .collect(Collectors.toList());
+        }
+
+        Article sourceArticle = this.getById(articleId);
+        if (sourceArticle == null) {
+            return new ArrayList<>();
+        }
+
+        Set<Long> candidateIds = new HashSet<>();
+
+        // 1. 基于标签推荐
+        List<Long> tagIds = articleTagService.lambdaQuery()
+                .eq(ArticleTag::getArticleId, articleId)
+                .list()
+                .stream()
+                .map(ArticleTag::getTagId)
+                .collect(Collectors.toList());
+        for (Long tagId : tagIds) {
+            List<Long> articleIds = articleTagService.lambdaQuery()
+                    .eq(ArticleTag::getTagId, tagId)
+                    .ne(ArticleTag::getArticleId, articleId)
+                    .list()
+                    .stream()
+                    .map(ArticleTag::getArticleId)
+                    .collect(Collectors.toList());
+            candidateIds.addAll(articleIds);
+        }
+
+        // 2. 基于专栏推荐
+        List<Long> columnIds = articleColumnService.lambdaQuery()
+                .eq(ArticleColumn::getArticleId, articleId)
+                .list()
+                .stream()
+                .map(ArticleColumn::getColumnId)
+                .collect(Collectors.toList());
+        for (Long columnId : columnIds) {
+            List<Long> articleIds = articleColumnService.lambdaQuery()
+                    .eq(ArticleColumn::getColumnId, columnId)
+                    .ne(ArticleColumn::getArticleId, articleId)
+                    .list()
+                    .stream()
+                    .map(ArticleColumn::getArticleId)
+                    .collect(Collectors.toList());
+            candidateIds.addAll(articleIds);
+        }
+
+        // 3. 如果没有基于标签或专栏的推荐，则随机推荐
+        if (candidateIds.isEmpty()) {
+            // 随机推荐 - 使用随机ID范围查询避免全表扫描
+            Long maxId = this.getBaseMapper().selectCount(null) > 0 ? 
+                this.lambdaQuery().orderByDesc(Article::getId).last("LIMIT 1").one().getId() : 0L;
+            
+            if (maxId <= 0) {
+                return new ArrayList<>();
+            }
+            
+            Set<Long> randomIds = new HashSet<>();
+            Random random = new Random();
+            int attempts = 0;
+            
+            while (randomIds.size() < limit && attempts < limit * 3) {
+                Long randomId = (long) (random.nextInt(maxId.intValue()) + 1);
+                Article article = this.getById(randomId);
+                if (article != null && ArticleStatusEnum.PUBLISHED.getCode().equals(article.getStatus()) && !randomId.equals(articleId)) {
+                    randomIds.add(randomId);
+                }
+                attempts++;
+            }
+            
+            if (randomIds.isEmpty()) {
+                return new ArrayList<>();
+            }
+            
+            return this.lambdaQuery()
+                    .in(Article::getId, randomIds)
+                    .list()
+                    .stream()
+                    .map(article -> getArticleVoById(article.getId()))
+                    .collect(Collectors.toList());
+        }
+
+        // 4. 获取候选文章并按发布时间排序
+        List<Article> candidates = this.lambdaQuery()
+                .eq(Article::getStatus, ArticleStatusEnum.PUBLISHED.getCode())
+                .in(Article::getId, candidateIds)
+                .ne(Article::getId, articleId)
+                .orderByDesc(Article::getPublishedTime)
+                .last("LIMIT " + limit)
+                .list();
+
+        return candidates.stream()
+                .map(article -> getArticleVoById(article.getId()))
+                .collect(Collectors.toList());
     }
 }
 

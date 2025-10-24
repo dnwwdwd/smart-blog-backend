@@ -104,4 +104,13 @@ public class ArticleController {
         articleService.deleteArticle(articleId);
         return ResultUtils.success();
     }
+
+    /**
+     * 推荐文章
+     */
+    @GetMapping("/recommend/{articleId}")
+    public BaseResponse<List<ArticleVo>> recommendArticles(@PathVariable Long articleId, @RequestParam(defaultValue = "5") int limit) {
+        List<ArticleVo> articles = articleService.recommendArticles(articleId, limit);
+        return ResultUtils.success(articles);
+    }
 }

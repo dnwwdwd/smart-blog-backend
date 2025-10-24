@@ -227,6 +227,48 @@ comment on column public.social_link.icon_url is '社交链接URL';
 
 comment on column public.social_link.sort_order is '排序权重';
 
-alter table public.social_link
+create table public.setting_config
+(
+    id                  bigserial
+        primary key,
+    site_name           varchar(255) default ''::character varying not null,
+    site_description    text,
+    site_keywords       varchar(500),
+    site_logo           varchar(500),
+    favicon             varchar(500),
+    about_title         varchar(255),
+    about_content       text,
+    about_image         varchar(500),
+    seo_title           varchar(255),
+    seo_description     text,
+    seo_keywords        varchar(500),
+    github_url          varchar(500),
+    twitter_url         varchar(500),
+    linkedin_url        varchar(500),
+    email_contact       varchar(255),
+    wechat_qr_url       varchar(500),
+    wechat_pay_qr_url   varchar(500),
+    alipay_qr_url       varchar(500),
+    enable_comments     boolean      default true,
+    enable_search       boolean      default true,
+    enable_dark_mode    boolean      default true,
+    articles_per_page   integer      default 10,
+    google_analytics_id varchar(100),
+    baidu_analytics_id  varchar(100),
+    create_time         timestamp    default CURRENT_TIMESTAMP,
+    update_time         timestamp    default CURRENT_TIMESTAMP,
+    ai_chat_shortcut    varchar(200)
+);
+
+comment on column public.setting_config.ai_chat_shortcut is 'AI弹窗快捷键';
+
+alter table public.setting_config
     owner to burger_blog;
+
+create index idx_site_name
+    on public.setting_config (site_name);
+
+create index idx_update_time
+    on public.setting_config (update_time);
+
 

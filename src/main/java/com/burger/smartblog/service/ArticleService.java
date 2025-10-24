@@ -51,4 +51,7 @@ public interface ArticleService extends IService<Article> {
 
     // 删除文章
     void deleteArticle(Long articleId);
+
+    // 推荐文章
+    List<ArticleVo> recommendArticles(Long articleId, int limit);
 }
