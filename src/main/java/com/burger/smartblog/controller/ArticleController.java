@@ -5,13 +5,17 @@ import com.burger.smartblog.common.BaseResponse;
 import com.burger.smartblog.common.ResultUtils;
 import com.burger.smartblog.model.dto.article.ArticleDto;
 import com.burger.smartblog.model.dto.article.ArticleRequest;
+import com.burger.smartblog.manager.UploadBatchManager;
 import com.burger.smartblog.model.vo.ArticleVo;
+import com.burger.smartblog.model.vo.upload.UploadBatchResponse;
 import com.burger.smartblog.service.ArticleService;
 import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
+import org.springframework.http.MediaType;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.util.List;
 import java.util.Map;
@@ -23,6 +27,7 @@ import java.util.Map;
 public class ArticleController {
 
     private ArticleService articleService;
+    private UploadBatchManager uploadBatchManager;
 
     /*
      * 发布文章
@@ -75,9 +80,14 @@ public class ArticleController {
     }
 
     @PostMapping("/batch/upload")
-    public BaseResponse<List<Long>> batchUpload(@RequestParam("files") MultipartFile[] files) {
-        List<Long> ids = articleService.batchUpload(files);
-        return ResultUtils.success(ids);
+    public BaseResponse<UploadBatchResponse> batchUpload(@RequestParam("files") MultipartFile[] files) {
+        UploadBatchResponse response = articleService.batchUpload(files);
+        return ResultUtils.success(response);
+    }
+
+    @GetMapping(value = "/upload/stream/{batchId}", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public SseEmitter streamUploadProgress(@PathVariable String batchId) {
+        return uploadBatchManager.connect(batchId);
     }
 
     /**

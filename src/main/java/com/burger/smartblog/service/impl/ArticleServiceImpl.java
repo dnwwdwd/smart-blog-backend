@@ -9,12 +9,16 @@ import com.burger.smartblog.common.ErrorCode;
 import com.burger.smartblog.enums.ArticleStatusEnum;
 import com.burger.smartblog.enums.UploadStatusEnum;
 import com.burger.smartblog.exception.BusinessException;
+import com.burger.smartblog.manager.UploadBatchManager;
 import com.burger.smartblog.mapper.ArticleMapper;
 import com.burger.smartblog.model.dto.article.ArticleDto;
 import com.burger.smartblog.model.dto.article.ArticleRequest;
 import com.burger.smartblog.model.entity.*;
 import com.burger.smartblog.model.vo.ArticleVo;
 import com.burger.smartblog.model.vo.CommentVo;
+import com.burger.smartblog.model.vo.upload.UploadBatchFileVo;
+import com.burger.smartblog.model.vo.upload.UploadBatchResponse;
+import com.burger.smartblog.model.vo.upload.UploadProgressPayload;
 import com.burger.smartblog.service.*;
 import com.burger.smartblog.service.chat.ChatService;
 import com.burger.smartblog.service.chat.RagService;
@@ -75,27 +79,51 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article>
     @Resource
     private RagService ragService;
 
+    @Resource
+    private UploadBatchManager uploadBatchManager;
+
     @Override
     @Transactional(rollbackFor = Exception.class)
     public Long publishArticle(ArticleDto articleDto) {
+        if (articleDto == null) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "文章数据不能为空");
+        }
+        boolean isDraft = ArticleStatusEnum.DRAFT.getCode().equals(articleDto.getStatus());
+        if (!isDraft) {
+            validatePublishPayload(articleDto);
+        }
         Article article = new Article();
         BeanUtils.copyProperties(articleDto, article);
-        String content = articleDto.getContent();
+        String content = Optional.ofNullable(articleDto.getContent()).orElse("");
+        article.setContent(content);
         // 根据 content 字数设置阅读时间
-        if (content.length() < 100) {
-            article.setReadTime(1);
-        } else {
-            int readTime = content.length() / 100;
-            article.setReadTime(readTime);
+        int readTime = StringUtils.isBlank(content) ? 0 : Math.max(1, content.length() / 100);
+        article.setReadTime(readTime);
+        String seoKeywordsJson = null;
+        if (CollectionUtils.isNotEmpty(articleDto.getSeoKeywords())) {
+            seoKeywordsJson = JSONUtil.toJsonStr(articleDto.getSeoKeywords());
+            article.setSeoKeywords(seoKeywordsJson);
         }
-        Article tmpArticle = article;
-        article = chatService.generateArticleMetaData(tmpArticle);
+        if (!isDraft) {
+            article = chatService.generateArticleMetaData(article);
+            if (StringUtils.isNotBlank(seoKeywordsJson) && StringUtils.isBlank(article.getSeoKeywords())) {
+                article.setSeoKeywords(seoKeywordsJson);
+            }
+        }
+        article.setContent(content);
+        article.setReadTime(readTime);
+        article.setStatus(articleDto.getStatus());
         // 保存文章
         this.save(article);
         if (article.getId() == null) {
             throw new BusinessException(ErrorCode.SYSTEM_ERROR, "文章保存失败");
         }
-        List<String> tags = articleDto.getTags();
+        List<String> tags = Optional.ofNullable(articleDto.getTags()).orElse(Collections.emptyList())
+                .stream()
+                .filter(StringUtils::isNotBlank)
+                .map(String::trim)
+                .distinct()
+                .toList();
         // 标签
         for (String tag : tags) {
             Tag tagEntity = tagService.getOne(new LambdaQueryWrapper<Tag>().eq(Tag::getName, tag));
@@ -109,7 +137,11 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article>
             articleTag.setTagId(tagEntity.getId());
             articleTagService.save(articleTag);
         }
-        List<Long> columnIds = articleDto.getColumnIds();
+        List<Long> columnIds = Optional.ofNullable(articleDto.getColumnIds()).orElse(Collections.emptyList())
+                .stream()
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
         // 专栏
         for (Long columnId : columnIds) {
             ArticleColumn articleColumn = new ArticleColumn();
@@ -120,6 +152,24 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article>
         // todo 文件向量化存储
 
         return article.getId();
+    }
+
+    private void validatePublishPayload(ArticleDto articleDto) {
+        if (StringUtils.isBlank(articleDto.getTitle())) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "标题不能为空");
+        }
+        if (StringUtils.isBlank(articleDto.getContent())) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "内容不能为空");
+        }
+        if (StringUtils.isBlank(articleDto.getCoverImage())) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "封面不能为空");
+        }
+        if (CollectionUtils.isEmpty(articleDto.getTags())) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "至少选择一个标签");
+        }
+        if (CollectionUtils.isEmpty(articleDto.getColumnIds())) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "至少选择一个专栏");
+        }
     }
 
     @Override
@@ -195,6 +245,11 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article>
         if (article == null) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "文章不存在");
         }
+        this.lambdaUpdate()
+                .setSql("views = views + 1")
+                .eq(Article::getId, articleId)
+                .update();
+        article.setViews((article.getViews() == null ? 0 : article.getViews()) + 1);
         ArticleVo articleVo = new ArticleVo();
         BeanUtils.copyProperties(article, articleVo);
         List<String> tagNames = tagService.getTagsByArticleId(article.getId()).stream().map(Tag::getName).toList();
@@ -264,33 +319,96 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article>
 
     @Override
     public Page<ArticleVo> getAllArticles(ArticleRequest request) {
-        String title = request.getTitle();
-        Page<Article> articlePage = this.lambdaQuery()
-                .like(StringUtils.isNotBlank(title), Article::getTitle, title)
-                .page(new Page<>(request.getCurrent(), request.getPageSize()));
+        String keyword = StringUtils.isNotBlank(request.getKeyword()) ? request.getKeyword() : request.getTitle();
+        LambdaQueryWrapper<Article> wrapper = new LambdaQueryWrapper<>();
+        if (StringUtils.isNotBlank(keyword)) {
+            wrapper.and(w -> w.like(Article::getTitle, keyword).or().like(Article::getExcerpt, keyword));
+        }
+        if (request.getStatus() != null) {
+            wrapper.eq(Article::getStatus, request.getStatus());
+        }
+        if (request.getPublishStartTime() != null) {
+            wrapper.ge(Article::getPublishedTime, new Date(request.getPublishStartTime()));
+        }
+        if (request.getPublishEndTime() != null) {
+            wrapper.le(Article::getPublishedTime, new Date(request.getPublishEndTime()));
+        }
+
+        if (request.getColumnId() != null) {
+            List<Long> articleIds = articleColumnService.lambdaQuery()
+                    .eq(ArticleColumn::getColumnId, request.getColumnId())
+                    .list()
+                    .stream()
+                    .map(ArticleColumn::getArticleId)
+                    .toList();
+            if (CollectionUtils.isEmpty(articleIds)) {
+                return emptyArticleVoPage(request.getCurrent(), request.getPageSize());
+            }
+            wrapper.in(Article::getId, articleIds);
+        }
+
+        if (request.getTagId() != null) {
+            List<Long> articleIds = articleTagService.lambdaQuery()
+                    .eq(ArticleTag::getTagId, request.getTagId())
+                    .list()
+                    .stream()
+                    .map(ArticleTag::getArticleId)
+                    .toList();
+            if (CollectionUtils.isEmpty(articleIds)) {
+                return emptyArticleVoPage(request.getCurrent(), request.getPageSize());
+            }
+            wrapper.in(Article::getId, articleIds);
+        }
+
+        wrapper.orderByDesc(Article::getPublishedTime).orderByDesc(Article::getUpdateTime);
+
+        Page<Article> articlePage = this.page(new Page<>(request.getCurrent(), request.getPageSize()), wrapper);
         List<ArticleVo> articleVos = getArticleVos(articlePage.getRecords());
         Page<ArticleVo> articleVoPage = new Page<>(request.getCurrent(), request.getPageSize(), articlePage.getTotal());
         articleVoPage.setRecords(articleVos);
         return articleVoPage;
     }
 
+    private Page<ArticleVo> emptyArticleVoPage(long current, long size) {
+        Page<ArticleVo> page = new Page<>(current, size, 0);
+        page.setRecords(Collections.emptyList());
+        return page;
+    }
+
     @Override
-    public List<Long> batchUpload(MultipartFile[] files) {
+    public UploadBatchResponse batchUpload(MultipartFile[] files) {
         if (files == null || files.length == 0) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "请上传文件");
         }
+        if (files.length > 5) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "单批次最多上传 5 个文件");
+        }
 
-        // 1) 先为每个文件创建占位记录，返回 ID 列表
-        List<Long> ids = new ArrayList<>();
+        String batchId = UUID.randomUUID().toString().replace("-", "");
+        List<Long> ids = new ArrayList<>(files.length);
+        List<UploadBatchFileVo> fileVos = new ArrayList<>(files.length);
+
         for (int i = 0; i < files.length; i++) {
             Article placeholder = new Article();
             placeholder.setUploadStatus(UploadStatusEnum.UPLOADING.getCode());
             placeholder.setStatus(ArticleStatusEnum.DRAFT.getCode());
             this.save(placeholder);
-            ids.add(placeholder.getId());
+            Long articleId = placeholder.getId();
+            ids.add(articleId);
+
+            String originalName = resolveFileName(files[i], i);
+            UploadBatchFileVo fileVo = UploadBatchFileVo.builder()
+                    .articleId(articleId)
+                    .order(i)
+                    .fileName(originalName)
+                    .build();
+            fileVos.add(fileVo);
         }
 
-        // 2) 读取字节数组 + 原始文件名，开启异步处理：按顺序映射到对应的占位 ID
+        uploadBatchManager.registerBatch(batchId, fileVos);
+        fileVos.forEach(vo -> uploadBatchManager.emitFileQueued(batchId, vo));
+        uploadBatchManager.emitBatchStatus(batchId, "running", "批次已创建，开始处理");
+
         byte[][] byteList = Arrays.stream(files)
                 .map(file -> {
                     try {
@@ -303,26 +421,29 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article>
 
         String[] fileNames = new String[files.length];
         for (int i = 0; i < files.length; i++) {
-            String name = files[i].getOriginalFilename();
-            fileNames[i] = StringUtils.isNotBlank(name) ? name : ("upload-" + i + ".txt");
+            fileNames[i] = resolveFileName(files[i], i);
         }
 
         CompletableFuture.runAsync(() -> {
             try {
-                self.batchUploadAndSaveArticles(byteList, ids, fileNames);
+                self.batchUploadAndSaveArticles(batchId, byteList, ids, fileNames);
             } catch (Exception e) {
-                log.error("批量上传异步任务执行失败", e);
+                log.error("批量上传异步任务执行失败 batchId={}", batchId, e);
+                uploadBatchManager.markBatchFailed(batchId, "批量上传异步任务异常");
             }
         }, articleGeneratorExecutor);
 
-        return ids;
+        return UploadBatchResponse.builder()
+                .batchId(batchId)
+                .files(fileVos)
+                .build();
     }
 
-    @Transactional(rollbackFor = Exception.class)
     @Override
-    public void batchUploadAndSaveArticles(byte[][] byteList, List<Long> ids, String[] fileNames) {
-        log.info("批量上传文章开始，共 {} 篇", byteList == null ? 0 : byteList.length);
+    public void batchUploadAndSaveArticles(String batchId, byte[][] byteList, List<Long> ids, String[] fileNames) {
+        log.info("批量上传文章开始，batchId={}，文件数={}", batchId, byteList == null ? 0 : byteList.length);
         if (byteList == null || byteList.length == 0 || ids == null || ids.isEmpty()) {
+            uploadBatchManager.markBatchFailed(batchId, "没有可处理的文件");
             return;
         }
         int total = Math.min(byteList.length, ids.size());
@@ -331,15 +452,15 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article>
             Long articleId = ids.get(i);
             String originalName = (fileNames != null && fileNames.length > i && StringUtils.isNotBlank(fileNames[i]))
                     ? fileNames[i] : ("upload-" + i + ".txt");
-
+            uploadBatchManager.emitFileStatus(batchId, buildPayload(batchId, articleId, originalName, i, "uploading", "文件已上传，准备解析"));
             try {
-                // 解析内容并生成元数据
                 String articleContent = this.bytesToString(bytes);
+                uploadBatchManager.emitFileStatus(batchId, buildPayload(batchId, articleId, originalName, i, "processing", "AI 正在生成文章元数据"));
+
                 Article toGen = new Article();
                 toGen.setContent(articleContent);
                 Article generated = chatService.generateArticleMetaData(toGen);
 
-                // 标题唯一性校验：若已存在同名文章，则标记失败并跳过
                 String genTitle2 = generated.getTitle();
                 if (StringUtils.isNotBlank(genTitle2) && this.lambdaQuery().eq(Article::getTitle, genTitle2).count() > 0) {
                     Article dupUpdate = new Article();
@@ -347,15 +468,14 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article>
                     dupUpdate.setContent(articleContent);
                     dupUpdate.setUploadStatus(UploadStatusEnum.FAILED.getCode());
                     this.updateById(dupUpdate);
+                    uploadBatchManager.emitFileStatus(batchId, buildPayload(batchId, articleId, originalName, i, "failed", "检测到重复标题"));
                     log.warn("批量上传：检测到重复标题，已拒绝上传并标记失败，title={}", genTitle2);
                     continue;
                 }
 
-                // 计算阅读时间
                 int readTime = (articleContent != null && articleContent.length() >= 100)
                         ? articleContent.length() / 100 : 1;
 
-                // 将生成结果回写到同一条记录，并标记成功
                 Article toUpdate = new Article();
                 toUpdate.setId(articleId);
                 toUpdate.setTitle(FileUtil.mainName(originalName));
@@ -370,18 +490,19 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article>
                 toUpdate.setUploadStatus(UploadStatusEnum.SUCCESS.getCode());
                 this.updateById(toUpdate);
 
-                // 将文件向量存储到知识库（携带原始文件名）
                 ragService.storeFileToDashScopeCloudStore(bytes, originalName);
-
+                uploadBatchManager.emitFileStatus(batchId, buildPayload(batchId, articleId, originalName, i, "success", "生成并入库成功"));
             } catch (Exception ex) {
                 log.error("单篇文章上传处理失败，articleId={}。将标记为失败", articleId, ex);
                 Article failUpdate = new Article();
                 failUpdate.setId(articleId);
                 failUpdate.setUploadStatus(UploadStatusEnum.FAILED.getCode());
                 this.updateById(failUpdate);
+                uploadBatchManager.emitFileStatus(batchId, buildPayload(batchId, articleId, originalName, i, "failed", ex.getMessage()));
             }
         }
-        log.info("批量上传文章结束");
+        uploadBatchManager.markBatchCompleted(batchId);
+        log.info("批量上传文章结束，batchId={}", batchId);
     }
 
     private List<ArticleVo> getArticleVos(List<Article> articles) {
@@ -397,6 +518,28 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article>
             return new String(bytes, 3, bytes.length - 3, StandardCharsets.UTF_8);
         }
         return new String(bytes, StandardCharsets.UTF_8);
+    }
+
+    private UploadProgressPayload buildPayload(String batchId, Long articleId, String fileName, int order, String status, String message) {
+        return UploadProgressPayload.builder()
+                .batchId(batchId)
+                .articleId(articleId)
+                .fileName(fileName)
+                .order(order)
+                .status(status)
+                .message(message)
+                .build();
+    }
+
+    private String resolveFileName(MultipartFile file, int index) {
+        if (file == null) {
+            return "upload-" + index + ".txt";
+        }
+        String name = file.getOriginalFilename();
+        if (StringUtils.isBlank(name)) {
+            return "upload-" + index + ".txt";
+        }
+        return name;
     }
 
     @Override
@@ -550,132 +693,114 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article>
             limit = 5;
         }
         if (articleId == null) {
-            // 随机推荐 - 使用随机ID范围查询避免全表扫描
-            Long maxId = this.getBaseMapper().selectCount(null) > 0 ? 
-                this.lambdaQuery().orderByDesc(Article::getId).last("LIMIT 1").one().getId() : 0L;
-            
-            if (maxId <= 0) {
-                return new ArrayList<>();
-            }
-            
-            Set<Long> randomIds = new HashSet<>();
-            Random random = new Random();
-            int attempts = 0;
-            
-            while (randomIds.size() < limit && attempts < limit * 3) {
-                Long randomId = (long) (random.nextInt(maxId.intValue()) + 1);
-                Article article = this.getById(randomId);
-                if (article != null && ArticleStatusEnum.PUBLISHED.getCode().equals(article.getStatus())) {
-                    randomIds.add(randomId);
-                }
-                attempts++;
-            }
-            
-            if (randomIds.isEmpty()) {
-                return new ArrayList<>();
-            }
-            
-            return this.lambdaQuery()
-                    .in(Article::getId, randomIds)
-                    .list()
-                    .stream()
-                    .map(article -> getArticleVoById(article.getId()))
-                    .collect(Collectors.toList());
+            return buildArticleVos(randomRecommendIds(limit, null, Collections.emptySet()));
         }
 
         Article sourceArticle = this.getById(articleId);
         if (sourceArticle == null) {
-            return new ArrayList<>();
+            return Collections.emptyList();
         }
 
-        Set<Long> candidateIds = new HashSet<>();
-
-        // 1. 基于标签推荐
         List<Long> tagIds = articleTagService.lambdaQuery()
                 .eq(ArticleTag::getArticleId, articleId)
                 .list()
                 .stream()
                 .map(ArticleTag::getTagId)
-                .collect(Collectors.toList());
-        for (Long tagId : tagIds) {
-            List<Long> articleIds = articleTagService.lambdaQuery()
-                    .eq(ArticleTag::getTagId, tagId)
-                    .ne(ArticleTag::getArticleId, articleId)
-                    .list()
-                    .stream()
-                    .map(ArticleTag::getArticleId)
-                    .collect(Collectors.toList());
-            candidateIds.addAll(articleIds);
-        }
-
-        // 2. 基于专栏推荐
+                .toList();
         List<Long> columnIds = articleColumnService.lambdaQuery()
                 .eq(ArticleColumn::getArticleId, articleId)
                 .list()
                 .stream()
                 .map(ArticleColumn::getColumnId)
-                .collect(Collectors.toList());
-        for (Long columnId : columnIds) {
-            List<Long> articleIds = articleColumnService.lambdaQuery()
-                    .eq(ArticleColumn::getColumnId, columnId)
-                    .ne(ArticleColumn::getArticleId, articleId)
-                    .list()
-                    .stream()
-                    .map(ArticleColumn::getArticleId)
-                    .collect(Collectors.toList());
-            candidateIds.addAll(articleIds);
+                .toList();
+
+        Map<Long, Long> tagSimilarityMap = CollectionUtils.isEmpty(tagIds)
+                ? Collections.emptyMap()
+                : articleTagService.lambdaQuery()
+                .in(ArticleTag::getTagId, tagIds)
+                .list()
+                .stream()
+                .filter(record -> !articleId.equals(record.getArticleId()))
+                .collect(Collectors.groupingBy(ArticleTag::getArticleId, Collectors.counting()));
+
+        Set<Long> columnArticleIds = CollectionUtils.isEmpty(columnIds)
+                ? Collections.emptySet()
+                : articleColumnService.lambdaQuery()
+                .in(ArticleColumn::getColumnId, columnIds)
+                .ne(ArticleColumn::getArticleId, articleId)
+                .list()
+                .stream()
+                .map(ArticleColumn::getArticleId)
+                .collect(Collectors.toSet());
+
+        List<Long> orderedIds = new ArrayList<>();
+        if (CollectionUtils.isNotEmpty(columnArticleIds) && !tagSimilarityMap.isEmpty()) {
+            orderedIds.addAll(columnArticleIds.stream()
+                    .filter(tagSimilarityMap::containsKey)
+                    .sorted((a, b) -> Long.compare(tagSimilarityMap.get(b), tagSimilarityMap.get(a)))
+                    .limit(limit)
+                    .toList());
         }
 
-        // 3. 如果没有基于标签或专栏的推荐，则随机推荐
-        if (candidateIds.isEmpty()) {
-            // 随机推荐 - 使用随机ID范围查询避免全表扫描
-            Long maxId = this.getBaseMapper().selectCount(null) > 0 ? 
-                this.lambdaQuery().orderByDesc(Article::getId).last("LIMIT 1").one().getId() : 0L;
-            
-            if (maxId <= 0) {
-                return new ArrayList<>();
-            }
-            
-            Set<Long> randomIds = new HashSet<>();
-            Random random = new Random();
-            int attempts = 0;
-            
-            while (randomIds.size() < limit && attempts < limit * 3) {
-                Long randomId = (long) (random.nextInt(maxId.intValue()) + 1);
-                Article article = this.getById(randomId);
-                if (article != null && ArticleStatusEnum.PUBLISHED.getCode().equals(article.getStatus()) && !randomId.equals(articleId)) {
-                    randomIds.add(randomId);
-                }
-                attempts++;
-            }
-            
-            if (randomIds.isEmpty()) {
-                return new ArrayList<>();
-            }
-            
-            return this.lambdaQuery()
-                    .in(Article::getId, randomIds)
-                    .list()
-                    .stream()
-                    .map(article -> getArticleVoById(article.getId()))
-                    .collect(Collectors.toList());
+        if (orderedIds.size() < limit && !tagSimilarityMap.isEmpty()) {
+            orderedIds.addAll(tagSimilarityMap.entrySet().stream()
+                    .sorted((a, b) -> Long.compare(b.getValue(), a.getValue()))
+                    .map(Map.Entry::getKey)
+                    .filter(id -> !id.equals(articleId) && !orderedIds.contains(id))
+                    .limit(limit - orderedIds.size())
+                    .toList());
         }
 
-        // 4. 获取候选文章并按发布时间排序
-        List<Article> candidates = this.lambdaQuery()
+        if (orderedIds.size() < limit) {
+            Set<Long> exclude = new HashSet<>(orderedIds);
+            exclude.add(articleId);
+            orderedIds.addAll(randomRecommendIds(limit - orderedIds.size(), articleId, exclude));
+        }
+
+        List<Long> finalIds = orderedIds.stream()
+                .distinct()
+                .limit(limit)
+                .toList();
+        return buildArticleVos(finalIds);
+    }
+
+    private List<ArticleVo> buildArticleVos(List<Long> orderedIds) {
+        if (CollectionUtils.isEmpty(orderedIds)) {
+            return Collections.emptyList();
+        }
+        List<Article> articles = this.lambdaQuery()
                 .eq(Article::getStatus, ArticleStatusEnum.PUBLISHED.getCode())
-                .in(Article::getId, candidateIds)
-                .ne(Article::getId, articleId)
-                .orderByDesc(Article::getPublishedTime)
-                .last("LIMIT " + limit)
+                .in(Article::getId, orderedIds)
                 .list();
+        Map<Long, Article> articleMap = articles.stream()
+                .collect(Collectors.toMap(Article::getId, article -> article));
+        List<ArticleVo> vos = new ArrayList<>();
+        for (Long id : orderedIds) {
+            Article article = articleMap.get(id);
+            if (article != null) {
+                vos.add(getArticleVoById(id));
+            }
+        }
+        return vos;
+    }
 
-        return candidates.stream()
-                .map(article -> getArticleVoById(article.getId()))
-                .collect(Collectors.toList());
+    private List<Long> randomRecommendIds(int limit, Long articleId, Collection<Long> excludeIds) {
+        if (limit <= 0) {
+            return Collections.emptyList();
+        }
+        Set<Long> excludeSet = new HashSet<>();
+        if (articleId != null) {
+            excludeSet.add(articleId);
+        }
+        if (CollectionUtils.isNotEmpty(excludeIds)) {
+            excludeSet.addAll(excludeIds);
+        }
+        var query = this.lambdaQuery()
+                .eq(Article::getStatus, ArticleStatusEnum.PUBLISHED.getCode());
+        if (CollectionUtils.isNotEmpty(excludeSet)) {
+            query.notIn(Article::getId, excludeSet);
+        }
+        List<Article> randomArticles = query.last("ORDER BY RANDOM() LIMIT " + limit).list();
+        return randomArticles.stream().map(Article::getId).toList();
     }
 }
-
-
-
-

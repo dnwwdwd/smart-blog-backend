@@ -6,6 +6,7 @@ import com.burger.smartblog.model.dto.article.ArticleDto;
 import com.burger.smartblog.model.dto.article.ArticleRequest;
 import com.burger.smartblog.model.entity.Article;
 import com.burger.smartblog.model.vo.ArticleVo;
+import com.burger.smartblog.model.vo.upload.UploadBatchResponse;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -37,11 +38,11 @@ public interface ArticleService extends IService<Article> {
 
     Page<ArticleVo> getAllArticles(ArticleRequest request);
 
-    // 返回每个文件对应的占位文章ID，便于前端轮询
-    List<Long> batchUpload(MultipartFile[] files);
+    // 返回批次信息与占位文章 ID
+    UploadBatchResponse batchUpload(MultipartFile[] files);
 
     // 兼容旧实现，内部可能不再被直接调用
-    void batchUploadAndSaveArticles(byte[][] byteList, List<Long> ids, String[] fileNames);
+    void batchUploadAndSaveArticles(String batchId, byte[][] byteList, List<Long> ids, String[] fileNames);
 
     // 轮询查询上传状态
     Map<Long, Integer> getUploadStatuses(List<Long> ids);

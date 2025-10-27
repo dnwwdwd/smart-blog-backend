@@ -7,7 +7,10 @@ import com.burger.smartblog.common.ResultUtils;
 import com.burger.smartblog.exception.BusinessException;
 import com.burger.smartblog.model.dto.user.UserLoginRequest;
 import com.burger.smartblog.model.dto.user.UserRegisterRequest;
+import com.burger.smartblog.model.dto.user.UserUpdateRequest;
 import com.burger.smartblog.model.vo.LoginUserVO;
+import com.burger.smartblog.model.vo.PublicUserVO;
+import com.burger.smartblog.model.vo.UserUpdateResponse;
 import com.burger.smartblog.service.UserService;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
@@ -71,6 +74,22 @@ public class UserController {
     @GetMapping("/get/login")
     public BaseResponse<LoginUserVO> getLoginUser() {
         return ResultUtils.success(userService.getLoginUser());
+    }
+
+    /**
+     * 获取公开作者信息
+     */
+    @GetMapping("/profile/public")
+    public BaseResponse<PublicUserVO> getPublicAuthorProfile() {
+        return ResultUtils.success(userService.getPublicAuthorProfile());
+    }
+
+    /**
+     * 更新当前登录用户
+     */
+    @PutMapping("/profile")
+    public BaseResponse<UserUpdateResponse> updateCurrentUser(@RequestBody UserUpdateRequest request) {
+        return ResultUtils.success(userService.updateCurrentUser(request));
     }
 
 }

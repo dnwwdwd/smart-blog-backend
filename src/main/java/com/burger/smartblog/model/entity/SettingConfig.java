@@ -104,6 +104,11 @@ public class SettingConfig implements Serializable {
     private String wechatPayQrUrl;
 
     /**
+     * 公众号二维码链接
+     */
+    private String wechatOfficialQrUrl;
+
+    /**
      * 支付宝二维码链接
      */
     private String alipayQrUrl;

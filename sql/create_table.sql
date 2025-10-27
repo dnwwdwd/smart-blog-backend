@@ -7,6 +7,7 @@ create table public."user"
     username      varchar(256)             default '游客'::character varying not null,
     user_avatar   varchar(1024)            default 'https://th.bing.com/th/id/R.54a295a86f04aaf12f1285d4e00fd6be?rik=QAdEADu3LNh9Hg&pid=ImgRaw&r=0'::character varying,
     user_role     varchar(256)             default 'user'::character varying not null,
+    profile       text                     default ''::text not null,
     create_time   timestamp with time zone default CURRENT_TIMESTAMP         not null,
     update_time   timestamp with time zone default CURRENT_TIMESTAMP         not null,
     is_delete     smallint                 default 0                         not null
@@ -25,6 +26,7 @@ comment on column public."user".username is '用户昵称';
 comment on column public."user".user_avatar is '用户头像';
 
 comment on column public."user".user_role is '用户角色：user/admin/ban';
+comment on column public."user".profile is '个人简介';
 
 comment on column public."user".create_time is '创建时间';
 
@@ -248,6 +250,7 @@ create table public.setting_config
     email_contact       varchar(255),
     wechat_qr_url       varchar(500),
     wechat_pay_qr_url   varchar(500),
+    wechat_official_qr_url varchar(500),
     alipay_qr_url       varchar(500),
     enable_comments     boolean      default true,
     enable_search       boolean      default true,
@@ -261,6 +264,7 @@ create table public.setting_config
 );
 
 comment on column public.setting_config.ai_chat_shortcut is 'AI弹窗快捷键';
+comment on column public.setting_config.wechat_official_qr_url is '微信公众号二维码';
 
 alter table public.setting_config
     owner to burger_blog;
@@ -271,4 +275,62 @@ create index idx_site_name
 create index idx_update_time
     on public.setting_config (update_time);
 
+create table public.reward_message
+(
+    id             bigserial
+        primary key,
+    nickname       varchar(100) default ''::character varying not null,
+    email          varchar(150) default ''::character varying not null,
+    website        varchar(255) default ''::character varying not null,
+    message        varchar(200) default ''::character varying not null,
+    amount         numeric(12, 2) default 0 not null,
+    status         smallint     default 0 not null,
+    review_remark  varchar(200) default ''::character varying,
+    review_time    timestamp,
+    create_time    timestamp    default CURRENT_TIMESTAMP not null,
+    update_time    timestamp    default CURRENT_TIMESTAMP not null,
+    is_delete      smallint     default 0 not null
+);
 
+comment on table public.reward_message is '打赏留言表';
+
+comment on column public.reward_message.nickname is '支持者昵称';
+
+comment on column public.reward_message.email is '联系邮箱';
+
+comment on column public.reward_message.website is '个人网站';
+
+comment on column public.reward_message.message is '留言内容';
+comment on column public.reward_message.amount is '打赏金额';
+
+comment on column public.reward_message.status is '审核状态：0待审核、1通过、2拒绝';
+
+comment on column public.reward_message.review_remark is '审核备注';
+
+comment on column public.reward_message.review_time is '审核时间';
+
+comment on column public.reward_message.is_delete is '逻辑删除 0=正常 1=删除';
+
+alter table public.reward_message
+    owner to burger_blog;
+
+create index idx_reward_message_status
+    on public.reward_message (status);
+
+create index idx_reward_message_create_time
+    on public.reward_message (create_time);
+
+-- === Schema adjustments ===
+alter table public."user"
+    add column if not exists profile text default ''::text not null;
+
+alter table public.setting_config
+    drop column if exists author_name,
+    drop column if exists author_avatar,
+    drop column if exists author_bio;
+
+-- 2024-11-21 批量上传扩展：补充文章上传状态字段
+alter table public.article
+    add column if not exists upload_status smallint default 0 not null;
+
+comment on column public.article.upload_status is '批量上传状态：0-上传中 1-成功 2-失败';
