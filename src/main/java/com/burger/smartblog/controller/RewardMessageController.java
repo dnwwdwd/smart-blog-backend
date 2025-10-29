@@ -7,8 +7,11 @@ import com.burger.smartblog.model.dto.reward.RewardMessageCreateRequest;
 import com.burger.smartblog.model.dto.reward.RewardMessageQueryRequest;
 import com.burger.smartblog.model.dto.reward.RewardMessageReviewRequest;
 import com.burger.smartblog.model.entity.RewardMessage;
+import com.burger.smartblog.model.entity.SettingConfig;
 import com.burger.smartblog.model.vo.RewardMessageVo;
+import com.burger.smartblog.model.vo.RewardPayConfigVo;
 import com.burger.smartblog.service.RewardMessageService;
+import com.burger.smartblog.service.SettingConfigService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
@@ -21,6 +24,7 @@ import java.util.List;
 public class RewardMessageController {
 
     private final RewardMessageService rewardMessageService;
+    private final SettingConfigService settingConfigService;
 
     /**
      * 用户提交留言打赏
@@ -54,5 +58,19 @@ public class RewardMessageController {
     @GetMapping("/message/approved")
     public BaseResponse<List<RewardMessageVo>> listApprovedMessages(@RequestParam(defaultValue = "5") int limit) {
         return ResultUtils.success(rewardMessageService.listApprovedMessages(limit));
+    }
+
+    /**
+     * 获取打赏支付二维码配置
+     */
+    @GetMapping("/pay/config")
+    public BaseResponse<RewardPayConfigVo> getRewardPayConfig() {
+        SettingConfig settings = settingConfigService.getSiteSettings();
+        RewardPayConfigVo configVo = new RewardPayConfigVo();
+        if (settings != null) {
+            configVo.setWechatPayQrUrl(settings.getWechatPayQrUrl());
+            configVo.setAlipayQrUrl(settings.getAlipayQrUrl());
+        }
+        return ResultUtils.success(configVo);
     }
 }
